@@ -308,6 +308,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      console.error("[Sorted] Claude API error:", err instanceof Error ? err.message : err);
       return NextResponse.json(
         { error: "Failed to generate report. Please try again." },
         { status: 502 }
@@ -324,7 +325,9 @@ export async function POST(request: NextRequest) {
         .trim();
       const parsed = JSON.parse(cleaned);
       reportData = parseReportResponse(parsed);
-    } catch {
+    } catch (firstErr) {
+      console.error("[Sorted] First parse failed:", firstErr instanceof Error ? firstErr.message : firstErr);
+      console.error("[Sorted] Raw response (first 500 chars):", responseText?.slice(0, 500));
       // Retry once with stricter prompt
       try {
         const retryText = await generateReport(answers, true);
@@ -334,7 +337,8 @@ export async function POST(request: NextRequest) {
           .trim();
         const parsed = JSON.parse(cleaned);
         reportData = parseReportResponse(parsed);
-      } catch {
+      } catch (retryErr) {
+        console.error("[Sorted] Retry parse also failed:", retryErr instanceof Error ? retryErr.message : retryErr);
         return NextResponse.json(
           { error: "Failed to generate report. Please try again." },
           { status: 502 }
