@@ -3,7 +3,7 @@ export const siteConfig = {
   tagline: "Your money, sorted.",
   description:
     "Free AI-powered financial navigator for Australians. Answer a few questions, get your personalised tax, deductions, and benefits report. No signup, no fees, no data stored.",
-  url: "https://getsorted.au",
+  url: "https://imsorted.au",
   repo: "https://github.com/apappas57/sorted",
   license: "MIT",
   donationsUrl: "https://buymeacoffee.com/apappas",
