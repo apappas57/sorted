@@ -11,6 +11,12 @@ import type {
   JobHuntingStatus,
   DebtEntry,
   AustralianState,
+  WorkFromHome,
+  CarForWork,
+  PrivateHealthInsurance,
+  HousingStatus,
+  AgeRange,
+  FamilyStatus,
 } from "@/types/questionnaire";
 import type { ReportData } from "@/types/report";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -19,10 +25,16 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Disclaimer } from "@/components/ui/Disclaimer";
 import { ReportView } from "@/components/report/ReportView";
 import { StepEmployment } from "./StepEmployment";
+import { StepSalary } from "./StepSalary";
 import { StepABN } from "./StepABN";
 import { StepGST } from "./StepGST";
+import { StepWorkFromHome } from "./StepWorkFromHome";
+import { StepCarForWork } from "./StepCarForWork";
+import { StepHealthInsurance } from "./StepHealthInsurance";
 import { StepHECS } from "./StepHECS";
 import { StepPersonalDebt } from "./StepPersonalDebt";
+import { StepHousing } from "./StepHousing";
+import { StepLifeSituation } from "./StepLifeSituation";
 import { StepJobHunting } from "./StepJobHunting";
 import { StepState } from "./StepState";
 
@@ -30,20 +42,32 @@ import { StepState } from "./StepState";
 
 const ALL_STEPS: QuestionnaireStep[] = [
   "employment",
+  "salary",
   "abn",
   "gst",
+  "work_from_home",
+  "car_for_work",
+  "health_insurance",
   "hecs",
   "debt",
+  "housing",
+  "life_situation",
   "job_hunting",
   "state",
 ];
 
 const STEP_LABELS: Record<QuestionnaireStep, string> = {
   employment: "Work situation",
+  salary: "Annual Salary",
   abn: "ABN & income",
   gst: "GST status",
+  work_from_home: "Work From Home",
+  car_for_work: "Car For Work",
+  health_insurance: "Health Insurance",
   hecs: "Study loan",
   debt: "Personal debt",
+  housing: "Housing",
+  life_situation: "Life Situation",
   job_hunting: "Job search",
   state: "Location",
 };
@@ -94,9 +118,14 @@ export function QuestionnaireFlow() {
 
   const activeSteps = useMemo<QuestionnaireStep[]>(() => {
     return ALL_STEPS.filter((step) => {
+      const emp = answers.employment;
+
+      // Salary step: only if employee, both, or casual
+      if (step === "salary") {
+        return emp === "employee" || emp === "both" || emp === "casual";
+      }
       // ABN step: only if sole_trader, both, or casual
       if (step === "abn") {
-        const emp = answers.employment;
         return emp === "sole_trader" || emp === "both" || emp === "casual";
       }
       // GST step: only if has ABN or side income (not "no")
@@ -106,9 +135,24 @@ export function QuestionnaireFlow() {
           answers.abnStatus === "side_income_no_abn"
         );
       }
+      // Car for work: only if employed (not not_working)
+      if (step === "car_for_work") {
+        return emp !== "not_working";
+      }
+      // Health insurance: only if estimated total income > $93,000
+      if (step === "health_insurance") {
+        const salary = answers.annualSalary ?? 0;
+        const revenue = answers.annualRevenue ?? 0;
+        return salary + revenue > 93000;
+      }
       return true;
     });
-  }, [answers.employment, answers.abnStatus]);
+  }, [
+    answers.employment,
+    answers.abnStatus,
+    answers.annualSalary,
+    answers.annualRevenue,
+  ]);
 
   const currentStep = activeSteps[currentStepIndex];
   const totalSteps = activeSteps.length;
@@ -121,15 +165,27 @@ export function QuestionnaireFlow() {
     switch (currentStep) {
       case "employment":
         return answers.employment != null;
+      case "salary":
+        return answers.annualSalary != null && answers.annualSalary > 0;
       case "abn":
         return answers.abnStatus != null;
       case "gst":
         return answers.gstStatus != null;
+      case "work_from_home":
+        return answers.workFromHome != null;
+      case "car_for_work":
+        return answers.carForWork != null;
+      case "health_insurance":
+        return answers.privateHealth != null;
       case "hecs":
         return answers.hecsDebt != null;
       case "debt":
         // Always valid -- empty array means "none"
         return true;
+      case "housing":
+        return answers.housingStatus != null;
+      case "life_situation":
+        return answers.ageRange != null && answers.familyStatus != null;
       case "job_hunting":
         return answers.jobHunting != null;
       case "state":
@@ -176,6 +232,19 @@ export function QuestionnaireFlow() {
           delete next.abnStatus;
           delete next.annualRevenue;
           delete next.gstStatus;
+        }
+        // Clear salary if no longer relevant
+        if (
+          value !== "employee" &&
+          value !== "both" &&
+          value !== "casual"
+        ) {
+          delete next.annualSalary;
+        }
+        // Clear car_for_work if not working
+        if (value === "not_working") {
+          delete next.carForWork;
+          delete next.estimatedWorkKms;
         }
         return next;
       });
@@ -227,6 +296,46 @@ export function QuestionnaireFlow() {
 
   const setState = useCallback((value: AustralianState) => {
     setAnswers((prev) => ({ ...prev, state: value }));
+  }, []);
+
+  const setAnnualSalary = useCallback((value: number | undefined) => {
+    setAnswers((prev) => ({ ...prev, annualSalary: value }));
+  }, []);
+
+  const setWorkFromHome = useCallback((value: WorkFromHome) => {
+    setAnswers((prev) => ({ ...prev, workFromHome: value }));
+  }, []);
+
+  const setWorkFromHomeHours = useCallback((value: number | undefined) => {
+    setAnswers((prev) => ({ ...prev, workFromHomeHours: value }));
+  }, []);
+
+  const setCarForWork = useCallback((value: CarForWork) => {
+    setAnswers((prev) => ({ ...prev, carForWork: value }));
+  }, []);
+
+  const setEstimatedWorkKms = useCallback((value: number | undefined) => {
+    setAnswers((prev) => ({ ...prev, estimatedWorkKms: value }));
+  }, []);
+
+  const setPrivateHealth = useCallback((value: PrivateHealthInsurance) => {
+    setAnswers((prev) => ({ ...prev, privateHealth: value }));
+  }, []);
+
+  const setHousingStatus = useCallback((value: HousingStatus) => {
+    setAnswers((prev) => ({ ...prev, housingStatus: value }));
+  }, []);
+
+  const setWeeklyRent = useCallback((value: number | undefined) => {
+    setAnswers((prev) => ({ ...prev, weeklyRent: value }));
+  }, []);
+
+  const setAgeRange = useCallback((value: AgeRange) => {
+    setAnswers((prev) => ({ ...prev, ageRange: value }));
+  }, []);
+
+  const setFamilyStatus = useCallback((value: FamilyStatus) => {
+    setAnswers((prev) => ({ ...prev, familyStatus: value }));
   }, []);
 
   // ─── Submit ───────────────────────────────────────────────────────────────
@@ -359,6 +468,12 @@ export function QuestionnaireFlow() {
             onChange={setEmployment}
           />
         )}
+        {currentStep === "salary" && (
+          <StepSalary
+            annualSalary={answers.annualSalary}
+            onChange={setAnnualSalary}
+          />
+        )}
         {currentStep === "abn" && (
           <StepABN
             abnStatus={answers.abnStatus}
@@ -369,6 +484,28 @@ export function QuestionnaireFlow() {
         )}
         {currentStep === "gst" && (
           <StepGST value={answers.gstStatus} onChange={setGSTStatus} />
+        )}
+        {currentStep === "work_from_home" && (
+          <StepWorkFromHome
+            workFromHome={answers.workFromHome}
+            onChange={setWorkFromHome}
+            workFromHomeHours={answers.workFromHomeHours}
+            onHoursChange={setWorkFromHomeHours}
+          />
+        )}
+        {currentStep === "car_for_work" && (
+          <StepCarForWork
+            carForWork={answers.carForWork}
+            onChange={setCarForWork}
+            estimatedWorkKms={answers.estimatedWorkKms}
+            onKmsChange={setEstimatedWorkKms}
+          />
+        )}
+        {currentStep === "health_insurance" && (
+          <StepHealthInsurance
+            privateHealth={answers.privateHealth}
+            onChange={setPrivateHealth}
+          />
         )}
         {currentStep === "hecs" && (
           <StepHECS
@@ -382,6 +519,22 @@ export function QuestionnaireFlow() {
           <StepPersonalDebt
             debts={answers.debts ?? []}
             onChange={setDebts}
+          />
+        )}
+        {currentStep === "housing" && (
+          <StepHousing
+            housingStatus={answers.housingStatus}
+            onChange={setHousingStatus}
+            weeklyRent={answers.weeklyRent}
+            onRentChange={setWeeklyRent}
+          />
+        )}
+        {currentStep === "life_situation" && (
+          <StepLifeSituation
+            ageRange={answers.ageRange}
+            onAgeChange={setAgeRange}
+            familyStatus={answers.familyStatus}
+            onFamilyChange={setFamilyStatus}
           />
         )}
         {currentStep === "job_hunting" && (

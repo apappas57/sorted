@@ -83,7 +83,22 @@ const actionsSectionSchema = z.object({
   beforeEOFY: z.array(z.string()).default([]),
 });
 
+const discoveryItemSchema = z.object({
+  title: flexString,
+  amount: flexNumber,
+  description: flexString,
+  howToCapture: flexString,
+  source: flexString,
+});
+
+const discoveriesSectionSchema = z.object({
+  totalPotentialSavings: flexNumber,
+  items: z.array(discoveryItemSchema).default([]),
+  disclaimer: flexString,
+});
+
 export const reportSchema = z.object({
+  discoveries: discoveriesSectionSchema,
   tax: taxSectionSchema,
   bas: basSectionSchema,
   deductions: deductionsSectionSchema,

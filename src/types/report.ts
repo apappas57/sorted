@@ -55,7 +55,22 @@ export type ActionsSection = {
   beforeEOFY: string[];
 };
 
+export type DiscoveryItem = {
+  title: string;
+  amount: number;
+  description: string;
+  howToCapture: string;
+  source: string;
+};
+
+export type DiscoveriesSection = {
+  totalPotentialSavings: number;
+  items: DiscoveryItem[];
+  disclaimer: string;
+};
+
 export type ReportData = {
+  discoveries: DiscoveriesSection;
   tax: TaxSection;
   bas: BASSection;
   deductions: DeductionsSection;

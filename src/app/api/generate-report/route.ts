@@ -4,7 +4,16 @@ import { buildSystemPrompt, buildUserPrompt } from "@/lib/prompt";
 import { parseReportResponse } from "@/lib/report-schema";
 import { sanitizeString, sanitizeNumber, isValidState } from "@/lib/sanitize";
 import { siteConfig } from "@/config/site";
-import type { QuestionnaireAnswers, AustralianState } from "@/types/questionnaire";
+import type {
+  QuestionnaireAnswers,
+  AustralianState,
+  WorkFromHome,
+  CarForWork,
+  PrivateHealthInsurance,
+  HousingStatus,
+  AgeRange,
+  FamilyStatus,
+} from "@/types/questionnaire";
 
 // ─── Rate Limiting (in-memory) ──────────────────────────────────────────────
 
@@ -75,6 +84,17 @@ const VALID_DEBT_TYPES = new Set([
   "afterpay_bnpl",
 ]);
 const VALID_JOB_HUNTING = new Set(["actively", "casually", "no"]);
+const VALID_WORK_FROM_HOME = new Set(["yes", "sometimes", "no"]);
+const VALID_CAR_FOR_WORK = new Set(["yes", "no"]);
+const VALID_PRIVATE_HEALTH = new Set(["yes", "no"]);
+const VALID_HOUSING_STATUS = new Set(["renting", "mortgage", "neither"]);
+const VALID_AGE_RANGE = new Set(["18-29", "30-39", "40-49", "50-59", "60+"]);
+const VALID_FAMILY_STATUS = new Set([
+  "single",
+  "partner_no_kids",
+  "partner_with_kids",
+  "single_parent",
+]);
 
 type ValidationResult =
   | { ok: true; answers: QuestionnaireAnswers }
@@ -196,6 +216,124 @@ function validateAndSanitize(body: unknown): ValidationResult {
     hecsAmount = num;
   }
 
+  // --- Optional: Annual Salary ---
+  let annualSalary: number | undefined;
+  if (raw.annualSalary !== undefined && raw.annualSalary !== null) {
+    const num = sanitizeNumber(raw.annualSalary, 0, 10_000_000);
+    if (num === null) {
+      return { ok: false, error: "Invalid annual salary amount." };
+    }
+    annualSalary = num;
+  }
+
+  // --- Optional: Work From Home ---
+  let workFromHome: WorkFromHome | undefined;
+  if (raw.workFromHome !== undefined && raw.workFromHome !== null) {
+    if (typeof raw.workFromHome !== "string") {
+      return { ok: false, error: "Invalid work from home status." };
+    }
+    const cleaned = sanitizeString(raw.workFromHome);
+    if (!VALID_WORK_FROM_HOME.has(cleaned)) {
+      return { ok: false, error: "Invalid work from home status." };
+    }
+    workFromHome = cleaned as WorkFromHome;
+  }
+
+  // --- Optional: Work From Home Hours ---
+  let workFromHomeHours: number | undefined;
+  if (raw.workFromHomeHours !== undefined && raw.workFromHomeHours !== null) {
+    const num = sanitizeNumber(raw.workFromHomeHours, 0, 168);
+    if (num === null) {
+      return { ok: false, error: "Invalid work from home hours." };
+    }
+    workFromHomeHours = num;
+  }
+
+  // --- Optional: Car For Work ---
+  let carForWork: CarForWork | undefined;
+  if (raw.carForWork !== undefined && raw.carForWork !== null) {
+    if (typeof raw.carForWork !== "string") {
+      return { ok: false, error: "Invalid car for work status." };
+    }
+    const cleaned = sanitizeString(raw.carForWork);
+    if (!VALID_CAR_FOR_WORK.has(cleaned)) {
+      return { ok: false, error: "Invalid car for work status." };
+    }
+    carForWork = cleaned as CarForWork;
+  }
+
+  // --- Optional: Estimated Work Kms ---
+  let estimatedWorkKms: number | undefined;
+  if (raw.estimatedWorkKms !== undefined && raw.estimatedWorkKms !== null) {
+    const num = sanitizeNumber(raw.estimatedWorkKms, 0, 200_000);
+    if (num === null) {
+      return { ok: false, error: "Invalid estimated work kilometres." };
+    }
+    estimatedWorkKms = num;
+  }
+
+  // --- Optional: Private Health Insurance ---
+  let privateHealth: PrivateHealthInsurance | undefined;
+  if (raw.privateHealth !== undefined && raw.privateHealth !== null) {
+    if (typeof raw.privateHealth !== "string") {
+      return { ok: false, error: "Invalid private health insurance status." };
+    }
+    const cleaned = sanitizeString(raw.privateHealth);
+    if (!VALID_PRIVATE_HEALTH.has(cleaned)) {
+      return { ok: false, error: "Invalid private health insurance status." };
+    }
+    privateHealth = cleaned as PrivateHealthInsurance;
+  }
+
+  // --- Optional: Housing Status ---
+  let housingStatus: HousingStatus | undefined;
+  if (raw.housingStatus !== undefined && raw.housingStatus !== null) {
+    if (typeof raw.housingStatus !== "string") {
+      return { ok: false, error: "Invalid housing status." };
+    }
+    const cleaned = sanitizeString(raw.housingStatus);
+    if (!VALID_HOUSING_STATUS.has(cleaned)) {
+      return { ok: false, error: "Invalid housing status." };
+    }
+    housingStatus = cleaned as HousingStatus;
+  }
+
+  // --- Optional: Weekly Rent ---
+  let weeklyRent: number | undefined;
+  if (raw.weeklyRent !== undefined && raw.weeklyRent !== null) {
+    const num = sanitizeNumber(raw.weeklyRent, 0, 10_000);
+    if (num === null) {
+      return { ok: false, error: "Invalid weekly rent amount." };
+    }
+    weeklyRent = num;
+  }
+
+  // --- Optional: Age Range ---
+  let ageRange: AgeRange | undefined;
+  if (raw.ageRange !== undefined && raw.ageRange !== null) {
+    if (typeof raw.ageRange !== "string") {
+      return { ok: false, error: "Invalid age range." };
+    }
+    const cleaned = sanitizeString(raw.ageRange);
+    if (!VALID_AGE_RANGE.has(cleaned)) {
+      return { ok: false, error: "Invalid age range." };
+    }
+    ageRange = cleaned as AgeRange;
+  }
+
+  // --- Optional: Family Status ---
+  let familyStatus: FamilyStatus | undefined;
+  if (raw.familyStatus !== undefined && raw.familyStatus !== null) {
+    if (typeof raw.familyStatus !== "string") {
+      return { ok: false, error: "Invalid family status." };
+    }
+    const cleaned = sanitizeString(raw.familyStatus);
+    if (!VALID_FAMILY_STATUS.has(cleaned)) {
+      return { ok: false, error: "Invalid family status." };
+    }
+    familyStatus = cleaned as FamilyStatus;
+  }
+
   const answers: QuestionnaireAnswers = {
     employment: employment as QuestionnaireAnswers["employment"],
     state: state as AustralianState,
@@ -206,6 +344,16 @@ function validateAndSanitize(body: unknown): ValidationResult {
     ...(annualRevenue !== undefined ? { annualRevenue } : {}),
     ...(gstStatus !== undefined ? { gstStatus } : {}),
     ...(hecsAmount !== undefined ? { hecsAmount } : {}),
+    ...(annualSalary !== undefined ? { annualSalary } : {}),
+    ...(workFromHome !== undefined ? { workFromHome } : {}),
+    ...(workFromHomeHours !== undefined ? { workFromHomeHours } : {}),
+    ...(carForWork !== undefined ? { carForWork } : {}),
+    ...(estimatedWorkKms !== undefined ? { estimatedWorkKms } : {}),
+    ...(privateHealth !== undefined ? { privateHealth } : {}),
+    ...(housingStatus !== undefined ? { housingStatus } : {}),
+    ...(weeklyRent !== undefined ? { weeklyRent } : {}),
+    ...(ageRange !== undefined ? { ageRange } : {}),
+    ...(familyStatus !== undefined ? { familyStatus } : {}),
   };
 
   return { ok: true, answers };

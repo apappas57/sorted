@@ -9,6 +9,7 @@ import { DeductionsSection } from "./DeductionsSection";
 import { DebtSection } from "./DebtSection";
 import { BenefitsSection } from "./BenefitsSection";
 import { ActionChecklist } from "./ActionChecklist";
+import { DiscoveriesSection } from "./DiscoveriesSection";
 import { ShareReport } from "./ShareReport";
 
 type ReportViewProps = {
@@ -19,12 +20,16 @@ type ReportViewProps = {
 export function ReportView({ data, onReset }: ReportViewProps) {
   const showBAS = data.bas.required;
   const showDebt = data.debt.priorityOrder.length > 0;
+  const showDiscoveries = data.discoveries.items.length > 0;
 
   return (
     <div data-testid="report-view">
       <ReportHeader />
 
       <div className="space-y-12">
+        {/* Discoveries - the hero section, shown first */}
+        {showDiscoveries && <DiscoveriesSection data={data.discoveries} />}
+
         {/* Tax - always shown */}
         <TaxSection data={data.tax} />
 

@@ -19,6 +19,22 @@ export type DebtType =
 
 export type JobHuntingStatus = "actively" | "casually" | "no";
 
+export type WorkFromHome = "yes" | "sometimes" | "no";
+
+export type CarForWork = "yes" | "no";
+
+export type PrivateHealthInsurance = "yes" | "no";
+
+export type HousingStatus = "renting" | "mortgage" | "neither";
+
+export type AgeRange = "18-29" | "30-39" | "40-49" | "50-59" | "60+";
+
+export type FamilyStatus =
+  | "single"
+  | "partner_no_kids"
+  | "partner_with_kids"
+  | "single_parent";
+
 export type AustralianState =
   | "NSW"
   | "VIC"
@@ -40,6 +56,12 @@ export type QuestionnaireStep =
   | "gst"
   | "hecs"
   | "debt"
+  | "salary"
+  | "work_from_home"
+  | "car_for_work"
+  | "health_insurance"
+  | "housing"
+  | "life_situation"
   | "job_hunting"
   | "state";
 
@@ -63,6 +85,28 @@ export type QuestionnaireAnswers = {
 
   // Step 6: Job hunting (always shown)
   jobHunting: JobHuntingStatus;
+
+  // Step 1b: Annual salary (conditional: employee, both, or casual)
+  annualSalary?: number;
+
+  // Step 4: Work from home (always shown)
+  workFromHome?: WorkFromHome;
+  workFromHomeHours?: number;
+
+  // Step 5: Car for work (conditional: if employed)
+  carForWork?: CarForWork;
+  estimatedWorkKms?: number;
+
+  // Step 6: Private health insurance (conditional: salary > $90K)
+  privateHealth?: PrivateHealthInsurance;
+
+  // Step 9: Housing situation (always shown)
+  housingStatus?: HousingStatus;
+  weeklyRent?: number;
+
+  // Step 11: Life situation (always shown)
+  ageRange?: AgeRange;
+  familyStatus?: FamilyStatus;
 
   // Step 7: State/territory (always shown)
   state: AustralianState;

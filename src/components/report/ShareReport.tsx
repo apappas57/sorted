@@ -19,13 +19,24 @@ function formatCurrency(value: number): string {
 }
 
 function buildSummaryText(data: ReportData): string {
-  const lines: string[] = [
-    "Sorted - Your Financial Summary (2025-26)",
-    "",
-    `Tax set-aside: ${formatCurrency(data.tax.fortnightlySetAside)}/fortnight`,
-    `Annual tax estimate: ${formatCurrency(data.tax.annualTaxEstimate)}`,
-    `Medicare levy: ${formatCurrency(data.tax.medicareLevy)}`,
-  ];
+  const lines: string[] = [];
+
+  if (data.discoveries.items.length > 0) {
+    lines.push(
+      `Sorted found ${formatCurrency(data.discoveries.totalPotentialSavings)} in potential savings`
+    );
+    lines.push("");
+  }
+
+  lines.push("Sorted - Your Financial Summary (2025-26)");
+  lines.push("");
+  lines.push(
+    `Tax set-aside: ${formatCurrency(data.tax.fortnightlySetAside)}/fortnight`
+  );
+  lines.push(
+    `Annual tax estimate: ${formatCurrency(data.tax.annualTaxEstimate)}`
+  );
+  lines.push(`Medicare levy: ${formatCurrency(data.tax.medicareLevy)}`);
 
   if (data.tax.hecsRepayment > 0) {
     lines.push(
