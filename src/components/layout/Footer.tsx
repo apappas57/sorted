@@ -49,23 +49,12 @@ export function Footer() {
               href={siteConfig.donationsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-text-secondary transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green focus-visible:ring-offset-2 rounded-sm"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#FFDD00] px-3 py-1 text-sm font-semibold text-[#1a1a1a] transition-all duration-150 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFDD00] focus-visible:ring-offset-2"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-                />
-              </svg>
-              Keep Sorted Free
+              <span className="text-sm" aria-hidden="true">
+                ☕
+              </span>
+              Buy me a coffee
             </a>
           </nav>
         </div>

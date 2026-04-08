@@ -11,6 +11,7 @@ import { BenefitsSection } from "./BenefitsSection";
 import { ActionChecklist } from "./ActionChecklist";
 import { DiscoveriesSection } from "./DiscoveriesSection";
 import { ShareReport } from "./ShareReport";
+import { SupportBanner } from "./SupportBanner";
 
 type ReportViewProps = {
   data: ReportData;
@@ -50,6 +51,9 @@ export function ReportView({ data, onReset }: ReportViewProps) {
 
         {/* Share / print / reset */}
         <ShareReport data={data} onReset={onReset} />
+
+        {/* Support / donate */}
+        <SupportBanner />
 
         {/* Final disclaimer */}
         <Disclaimer

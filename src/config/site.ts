@@ -6,7 +6,7 @@ export const siteConfig = {
   url: "https://imsorted.au",
   repo: "https://github.com/apappas57/sorted",
   license: "MIT",
-  donationsUrl: "https://buymeacoffee.com/apappas",
+  donationsUrl: "https://buymeacoffee.com/groundwork",
   financialYear: "2025-26",
   nav: [
     { label: "How It Works", href: "/#how-it-works" },
