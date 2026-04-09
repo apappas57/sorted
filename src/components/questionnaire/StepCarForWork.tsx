@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { CarForWork, AnnualKmsRange } from "@/types/questionnaire";
+import type { CarForWork, AnnualKmsRange, NovatedLeaseStatus } from "@/types/questionnaire";
 
 type StepCarForWorkProps = {
   carForWork: CarForWork | undefined;
@@ -10,6 +10,9 @@ type StepCarForWorkProps = {
   onKmsChange: (value: number | undefined) => void;
   annualKms: AnnualKmsRange | undefined;
   onAnnualKmsChange: (value: AnnualKmsRange) => void;
+  hasNovatedLease: NovatedLeaseStatus | undefined;
+  onNovatedLeaseChange: (value: NovatedLeaseStatus) => void;
+  showNovatedLeaseQuestion: boolean;
 };
 
 const options: { value: CarForWork; label: string; description: string }[] = [
@@ -63,6 +66,19 @@ function formatNumber(value: string): string {
   return Number(num).toLocaleString("en-AU");
 }
 
+const novatedOptions: { value: NovatedLeaseStatus; label: string; description: string }[] = [
+  {
+    value: "yes",
+    label: "Yes",
+    description: "I currently have a novated lease through my employer",
+  },
+  {
+    value: "no",
+    label: "No",
+    description: "I don't have a novated lease",
+  },
+];
+
 export function StepCarForWork({
   carForWork,
   onChange,
@@ -70,6 +86,9 @@ export function StepCarForWork({
   onKmsChange,
   annualKms,
   onAnnualKmsChange,
+  hasNovatedLease,
+  onNovatedLeaseChange,
+  showNovatedLeaseQuestion,
 }: StepCarForWorkProps) {
   const [kmsDisplay, setKmsDisplay] = useState(
     estimatedWorkKms != null ? formatNumber(String(estimatedWorkKms)) : ""
@@ -209,6 +228,54 @@ export function StepCarForWork({
             </div>
           </div>
         </>
+      )}
+
+      {showNovatedLeaseQuestion && carForWork === "yes" && (
+        <div className="mt-6 rounded-xl border border-border bg-bg-surface p-4">
+          <p className="text-base font-semibold text-text-primary mb-2">
+            Do you currently have a novated lease?
+          </p>
+          <p className="text-sm text-text-secondary mb-3">
+            A novated lease is a salary sacrifice arrangement for a car through
+            your employer.
+          </p>
+          <div
+            className="flex flex-col gap-2"
+            role="radiogroup"
+            aria-label="Novated lease status"
+          >
+            {novatedOptions.map((option) => {
+              const isSelected = hasNovatedLease === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors duration-150 ${
+                    isSelected
+                      ? "border-green bg-green-light"
+                      : "border-border bg-bg-elevated hover:border-green/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="novatedLease"
+                    value={option.value}
+                    checked={isSelected}
+                    onChange={() => onNovatedLeaseChange(option.value)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-green"
+                  />
+                  <div className="min-w-0">
+                    <span className="block text-sm font-semibold text-text-primary">
+                      {option.label}
+                    </span>
+                    <span className="block text-xs text-text-secondary mt-0.5">
+                      {option.description}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
       )}
     </fieldset>
   );

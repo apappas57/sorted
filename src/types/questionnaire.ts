@@ -23,6 +23,8 @@ export type WorkFromHome = "yes" | "sometimes" | "no";
 
 export type CarForWork = "yes" | "no";
 
+export type NovatedLeaseStatus = "yes" | "no";
+
 export type AnnualKmsRange =
   | "under_5000"
   | "5000_15000"
@@ -120,6 +122,9 @@ export type QuestionnaireAnswers = {
   carForWork?: CarForWork;
   estimatedWorkKms?: number;
   annualKms?: AnnualKmsRange;
+
+  // Novated lease (conditional: employee or both, car for work)
+  hasNovatedLease?: NovatedLeaseStatus;
 
   // Step 6: Private health insurance (conditional: salary > $90K)
   privateHealth?: PrivateHealthInsurance;

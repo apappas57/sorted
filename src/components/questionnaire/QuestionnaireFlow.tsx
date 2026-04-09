@@ -19,6 +19,7 @@ import type {
   AgeRange,
   FamilyStatus,
   BusinessDeductions,
+  NovatedLeaseStatus,
 } from "@/types/questionnaire";
 import type { ReportData } from "@/types/report";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -262,6 +263,11 @@ export function QuestionnaireFlow() {
           delete next.carForWork;
           delete next.estimatedWorkKms;
           delete next.annualKms;
+          delete next.hasNovatedLease;
+        }
+        // Clear novated lease if sole trader only (not an employee)
+        if (value === "sole_trader") {
+          delete next.hasNovatedLease;
         }
         return next;
       });
@@ -333,9 +339,14 @@ export function QuestionnaireFlow() {
       if (value === "no") {
         delete next.estimatedWorkKms;
         delete next.annualKms;
+        delete next.hasNovatedLease;
       }
       return next;
     });
+  }, []);
+
+  const setNovatedLease = useCallback((value: NovatedLeaseStatus) => {
+    setAnswers((prev) => ({ ...prev, hasNovatedLease: value }));
   }, []);
 
   const setEstimatedWorkKms = useCallback((value: number | undefined) => {
@@ -533,6 +544,11 @@ export function QuestionnaireFlow() {
             onKmsChange={setEstimatedWorkKms}
             annualKms={answers.annualKms}
             onAnnualKmsChange={setAnnualKms}
+            hasNovatedLease={answers.hasNovatedLease}
+            onNovatedLeaseChange={setNovatedLease}
+            showNovatedLeaseQuestion={
+              answers.employment === "employee" || answers.employment === "both"
+            }
           />
         )}
         {currentStep === "health_insurance" && (

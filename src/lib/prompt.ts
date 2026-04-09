@@ -4,6 +4,7 @@ import type {
   CarForWork,
   AnnualKmsRange,
   PrivateHealthInsurance,
+  NovatedLeaseStatus,
   HousingStatus,
   AgeRange,
   FamilyStatus,
@@ -274,6 +275,78 @@ Scan for ALL of the following opportunities based on the person's answers:
     FTB Part B: up to $4,597.35 per family per year (youngest child under 5), income tested.
     Source: servicesaustralia.gov.au/family-tax-benefit
 
+14. NOVATED LEASE OPPORTUNITY
+    Trigger: ALL of these must be true:
+    - employment is "employee" or "both" (NOT sole_trader, casual, or not_working -- sole traders already deduct vehicle costs directly)
+    - hasNovatedLease is "no" or not provided (do NOT suggest if they already have one)
+    - carForWork is "yes"
+    - estimated total income is above $70,000 (higher marginal rate = bigger tax saving)
+    - annualKms is "15000_25000", "25000_40000", or "over_40000" (needs meaningful driving to justify)
+
+    What it is: A novated lease is a three-way agreement between an employee, their employer, and a finance company. The employer makes car payments from the employee's pre-tax AND post-tax salary, reducing taxable income. GST is removed from the vehicle purchase price (the employer claims it). Running costs (fuel, insurance, registration, servicing, tyres) can be bundled into the lease and also salary sacrificed.
+
+    How to estimate the benefit:
+    - Pre-tax saving: Annual lease payments x marginal tax rate = approximate annual tax saving.
+    - For a typical $50,000 car over 5 years: ~$10,000/year in lease payments (including running costs).
+    - At 30% marginal rate ($45,001-$135,000): ~$3,000/year tax saving.
+    - At 37% marginal rate ($135,001-$190,000): ~$3,700/year tax saving.
+    - At 45% marginal rate ($190,001+): ~$4,500/year tax saving.
+    - GST saving: ~$4,545 one-off saving on a $50,000 car (1/11th of GST-inclusive price).
+    - Scale the estimate proportionally if income or car value differs from the $50K example.
+
+    FBT considerations:
+    - FBT rate is 47% for the 2025-26 FBT year.
+    - Statutory formula: taxable value = car base value x 20% (flat rate) x days available / days in FBT year, minus employee contributions.
+    - Under the Employee Contribution Method (ECM), the employee makes post-tax contributions to reduce or eliminate the FBT liability.
+    - For zero-emission electric vehicles (battery EVs) first held and used on or after 1 July 2022, there is an FBT exemption -- making novated leases especially attractive for EVs.
+    - Plug-in hybrid EVs (PHEVs) are NO LONGER eligible for the FBT exemption from 1 April 2025, unless a pre-existing commitment was in place before that date.
+    - Car limit for depreciation purposes in 2025-26: $69,674.
+
+    IMPORTANT LANGUAGE:
+    - Say "Based on your income of $[X] and driving pattern, a novated lease could potentially save you approximately $[estimate] per year in tax."
+    - Say "This may be worth exploring with your employer's HR or payroll team."
+    - Say "Consult a novated lease provider such as Maxxia, SG Fleet, or LeasePlan for exact figures tailored to your situation."
+    - Do NOT say "you should get a novated lease" -- frame as an opportunity to explore.
+    - Note the EV FBT exemption as an additional consideration if applicable.
+
+    Source: ato.gov.au/businesses-and-organisations/hiring-and-paying-your-workers/fringe-benefits-tax/types-of-fringe-benefits/fbt-on-cars-other-vehicles-parking-and-tolls/cars-and-fbt/car-leasing-and-fbt
+
+15. DEBT RECYCLING OPPORTUNITY
+    Trigger: ALL of these must be true:
+    - housingStatus is "mortgage" (must have a home loan)
+    - estimated total income is above $100,000 (higher marginal rate = bigger deduction benefit)
+    - debts array does NOT contain "credit_card" or "afterpay_bnpl" entries (should pay off high-interest consumer debt first)
+    - employment is NOT "not_working" (needs income to benefit from deductions)
+
+    What it is: Debt recycling converts non-deductible debt (home loan) into tax-deductible debt (investment loan). The homeowner makes extra payments into their home loan, then redraws that amount to invest in income-producing assets (shares, ETFs, managed funds). The interest on the redrawn investment portion becomes tax deductible under ATO rules (TR 2000/2), because the borrowed funds are now used for an income-producing purpose.
+
+    How to estimate the benefit:
+    - Example: Recycling $50,000 of home loan into investment debt.
+    - At a 5.5% interest rate: $2,750/year in interest.
+    - That $2,750 becomes a tax deduction.
+    - At 30% marginal rate ($45,001-$135,000): ~$825/year tax saving.
+    - At 37% marginal rate ($135,001-$190,000): ~$1,018/year tax saving.
+    - At 45% marginal rate ($190,001+): ~$1,238/year tax saving.
+    - Scale proportionally based on estimated income and marginal rate.
+    - Use a conservative interest rate of 5.5% for estimates (typical variable rate range).
+    - Investment income (dividends, particularly franked dividends from Australian shares) provides additional returns but is taxable.
+
+    ATO rules on interest deductibility:
+    - Under ATO Taxation Ruling TR 2000/2, interest on borrowed money is deductible when the borrowed funds are used for an income-producing purpose.
+    - When money is redrawn from a home loan and invested, the interest on that redrawn portion becomes deductible, regardless of the original purpose of the loan.
+    - The key requirement: the CURRENT USE of the funds determines deductibility, not the original loan purpose.
+    - Records must clearly separate the deductible (investment) and non-deductible (home) portions of the loan. A split loan or separate redraw account is recommended.
+
+    IMPORTANT LANGUAGE AND WARNINGS:
+    - Say "You are currently paying non-deductible interest on your home loan. Debt recycling could potentially convert a portion of that into tax-deductible interest, saving you approximately $[estimate] per year in tax."
+    - MUST include: "Debt recycling is a sophisticated strategy that involves investment risk, including the possibility of investment losses. The value of investments can go down as well as up."
+    - MUST include: "This strategy works best with a long time horizon (5+ years) and requires careful planning."
+    - MUST include: "Always consult a qualified financial adviser before implementing a debt recycling strategy."
+    - Do NOT say "you should debt recycle" -- frame as something to explore with professional advice.
+    - If debts array contains "personal_loan" or "car_loan", note that it may be better to pay those off first before considering debt recycling.
+
+    Source: ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/investments-insurance-and-super/interest-dividend-and-other-investment-income-deductions
+
 AUSTRALIAN TAX REFERENCE (${siteConfig.financialYear} FY):
 
 Tax Brackets (Residents):
@@ -326,6 +399,22 @@ Sole Trader Tax: Same individual rates, but must set aside for tax + super (12% 
 
 Superannuation Guarantee Rate: 12% (from 1 July 2025).
 Concessional Contributions Cap: $30,000 per year.
+
+Novated Lease Reference (2025-26):
+- FBT rate: 47% (applies FBT years ending 31 March 2023 to 31 March 2027).
+- Statutory formula: taxable value = base value x 20% x days available / days in year, minus employee contributions.
+- Employee Contribution Method (ECM): post-tax contributions reduce FBT taxable value.
+- Car limit for FBT/depreciation purposes: $69,674 (2025-26).
+- Zero-emission EVs: FBT exempt if first held/used on or after 1 July 2022 and no LCT payable.
+- PHEVs: no longer eligible for FBT exemption from 1 April 2025 (unless pre-existing commitment).
+- GST saving on vehicle: employer claims GST credit, saving approximately 1/11th of the GST-inclusive price.
+
+Debt Recycling Reference:
+- ATO Taxation Ruling TR 2000/2: interest deductibility depends on the CURRENT use of borrowed funds, not the original loan purpose.
+- When home loan funds are redrawn and invested in income-producing assets, interest on the redrawn portion becomes tax deductible.
+- Requires clear loan splitting to separate deductible and non-deductible portions.
+- Investment income (dividends, capital gains) is assessable income but Australian share dividends often carry franking credits.
+- Not suitable for people with high-interest consumer debt (credit cards, BNPL) -- pay those off first.
 
 BUSINESS DEDUCTIONS PROCESSING:
 When businessDeductions data is provided, you MUST:
@@ -425,6 +514,11 @@ export function buildUserPrompt(answers: QuestionnaireAnswers): string {
         Math.round((answers.estimatedWorkKms / midpoint) * 100)
       );
       lines.push(`Estimated Business-Use Percentage: ${businessPct}%`);
+    }
+    if (answers.hasNovatedLease) {
+      lines.push(
+        `Has Novated Lease: ${formatNovatedLease(answers.hasNovatedLease)}`
+      );
     }
   }
 
@@ -578,6 +672,14 @@ function getAnnualKmsMidpoint(range: AnnualKmsRange): number {
     over_40000: 45000,
   };
   return map[range];
+}
+
+function formatNovatedLease(status: NovatedLeaseStatus): string {
+  const map: Record<NovatedLeaseStatus, string> = {
+    yes: "Yes, currently has a novated lease",
+    no: "No novated lease",
+  };
+  return map[status];
 }
 
 function formatPrivateHealth(status: PrivateHealthInsurance): string {
