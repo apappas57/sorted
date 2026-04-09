@@ -97,11 +97,44 @@ const discoveriesSectionSchema = z.object({
   disclaimer: flexString,
 });
 
+const businessDeductionBreakdownSchema = z.object({
+  category: z.string().default(""),
+  amount: flexNumber,
+  note: z.string().default(""),
+});
+
+const businessDeductionsSectionSchema = z.object({
+  applicable: z.union([z.boolean(), z.string()]).transform((v) =>
+    typeof v === "string" ? v.toLowerCase() === "true" || v.toLowerCase() === "yes" : v
+  ),
+  instantWriteOff: z.object({
+    total: flexNumber,
+    taxSaving: flexNumber,
+    breakdown: z.array(businessDeductionBreakdownSchema).default([]),
+  }).default({ total: 0, taxSaving: 0, breakdown: [] }),
+  depreciation: z.object({
+    totalAssetValue: flexNumber,
+    annualDepreciation: flexNumber,
+    taxSaving: flexNumber,
+    explanation: flexString,
+  }).default({ totalAssetValue: 0, annualDepreciation: 0, taxSaving: 0, explanation: "N/A" }),
+  homeOffice: z.object({
+    method: flexString,
+    annualDeduction: flexNumber,
+    explanation: flexString,
+  }).default({ method: "N/A", annualDeduction: 0, explanation: "N/A" }),
+  totalDeductions: flexNumber,
+  totalTaxSaving: flexNumber,
+  warnings: z.array(z.string()).default([]),
+  tips: z.array(z.string()).default([]),
+});
+
 export const reportSchema = z.object({
   discoveries: discoveriesSectionSchema,
   tax: taxSectionSchema,
   bas: basSectionSchema,
   deductions: deductionsSectionSchema,
+  businessDeductions: businessDeductionsSectionSchema.optional(),
   debt: debtSectionSchema,
   benefits: benefitsSectionSchema,
   actions: actionsSectionSchema,

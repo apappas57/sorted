@@ -15,6 +15,8 @@ import type {
   HousingStatus,
   AgeRange,
   FamilyStatus,
+  BusinessDeductions,
+  HomeOfficeMethod,
 } from "@/types/questionnaire";
 
 // ─── Rate Limiting (in-memory) ──────────────────────────────────────────────
@@ -104,6 +106,7 @@ const VALID_FAMILY_STATUS = new Set([
   "partner_with_kids",
   "single_parent",
 ]);
+const VALID_HOME_OFFICE_METHODS = new Set(["hours", "actual"]);
 
 type ValidationResult =
   | { ok: true; answers: QuestionnaireAnswers }
@@ -356,6 +359,46 @@ function validateAndSanitize(body: unknown): ValidationResult {
     familyStatus = cleaned as FamilyStatus;
   }
 
+  // --- Optional: Business Deductions ---
+  let businessDeductions: BusinessDeductions | undefined;
+  if (raw.businessDeductions !== undefined && raw.businessDeductions !== null) {
+    if (typeof raw.businessDeductions !== "object") {
+      return { ok: false, error: "Invalid business deductions." };
+    }
+    const bd = raw.businessDeductions as Record<string, unknown>;
+
+    const toolsAndEquipment = sanitizeNumber(bd.toolsAndEquipment ?? 0, 0, 10_000_000) ?? 0;
+    const technology = sanitizeNumber(bd.technology ?? 0, 0, 10_000_000) ?? 0;
+    const vehicleExpenses = sanitizeNumber(bd.vehicleExpenses ?? 0, 0, 10_000_000) ?? 0;
+    const subscriptions = sanitizeNumber(bd.subscriptions ?? 0, 0, 10_000_000) ?? 0;
+    const professionalDevelopment = sanitizeNumber(bd.professionalDevelopment ?? 0, 0, 10_000_000) ?? 0;
+    const clothing = sanitizeNumber(bd.clothing ?? 0, 0, 10_000_000) ?? 0;
+    const otherDeductions = sanitizeNumber(bd.otherDeductions ?? 0, 0, 10_000_000) ?? 0;
+    const totalAssetPurchases = sanitizeNumber(bd.totalAssetPurchases ?? 0, 0, 100_000_000) ?? 0;
+    const homeOfficeHoursPerWeek = sanitizeNumber(bd.homeOfficeHoursPerWeek ?? 0, 0, 168) ?? 0;
+
+    let homeOfficeMethod: HomeOfficeMethod = "hours";
+    if (bd.homeOfficeMethod !== undefined && typeof bd.homeOfficeMethod === "string") {
+      const cleaned = sanitizeString(bd.homeOfficeMethod);
+      if (VALID_HOME_OFFICE_METHODS.has(cleaned)) {
+        homeOfficeMethod = cleaned as HomeOfficeMethod;
+      }
+    }
+
+    businessDeductions = {
+      toolsAndEquipment,
+      technology,
+      vehicleExpenses,
+      homeOfficeMethod,
+      homeOfficeHoursPerWeek,
+      subscriptions,
+      professionalDevelopment,
+      clothing,
+      otherDeductions,
+      totalAssetPurchases,
+    };
+  }
+
   const answers: QuestionnaireAnswers = {
     employment: employment as QuestionnaireAnswers["employment"],
     state: state as AustralianState,
@@ -377,6 +420,7 @@ function validateAndSanitize(body: unknown): ValidationResult {
     ...(weeklyRent !== undefined ? { weeklyRent } : {}),
     ...(ageRange !== undefined ? { ageRange } : {}),
     ...(familyStatus !== undefined ? { familyStatus } : {}),
+    ...(businessDeductions !== undefined ? { businessDeductions } : {}),
   };
 
   return { ok: true, answers };

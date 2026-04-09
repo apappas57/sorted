@@ -6,6 +6,7 @@ import { ReportHeader } from "./ReportHeader";
 import { TaxSection } from "./TaxSection";
 import { BASSection } from "./BASSection";
 import { DeductionsSection } from "./DeductionsSection";
+import { BusinessDeductionsSection } from "./BusinessDeductionsSection";
 import { DebtSection } from "./DebtSection";
 import { BenefitsSection } from "./BenefitsSection";
 import { ActionChecklist } from "./ActionChecklist";
@@ -22,6 +23,8 @@ export function ReportView({ data, onReset }: ReportViewProps) {
   const showBAS = data.bas.required;
   const showDebt = data.debt.priorityOrder.length > 0;
   const showDiscoveries = data.discoveries.items.length > 0;
+  const showBusinessDeductions =
+    data.businessDeductions?.applicable === true;
 
   return (
     <div data-testid="report-view">
@@ -39,6 +42,11 @@ export function ReportView({ data, onReset }: ReportViewProps) {
 
         {/* Deductions - always shown */}
         <DeductionsSection data={data.deductions} />
+
+        {/* Business Deductions - conditional on being a business owner */}
+        {showBusinessDeductions && data.businessDeductions && (
+          <BusinessDeductionsSection data={data.businessDeductions} />
+        )}
 
         {/* Debt - conditional on having debt data */}
         {showDebt && <DebtSection data={data.debt} />}

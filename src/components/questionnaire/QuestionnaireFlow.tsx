@@ -18,6 +18,7 @@ import type {
   HousingStatus,
   AgeRange,
   FamilyStatus,
+  BusinessDeductions,
 } from "@/types/questionnaire";
 import type { ReportData } from "@/types/report";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -38,6 +39,7 @@ import { StepHousing } from "./StepHousing";
 import { StepLifeSituation } from "./StepLifeSituation";
 import { StepJobHunting } from "./StepJobHunting";
 import { StepState } from "./StepState";
+import { StepBusinessDeductions } from "./StepBusinessDeductions";
 
 // ─── Step Configuration ───────────────────────────────────────────────────────
 
@@ -49,6 +51,7 @@ const ALL_STEPS: QuestionnaireStep[] = [
   "work_from_home",
   "car_for_work",
   "health_insurance",
+  "business_deductions",
   "hecs",
   "debt",
   "housing",
@@ -65,6 +68,7 @@ const STEP_LABELS: Record<QuestionnaireStep, string> = {
   work_from_home: "Work From Home",
   car_for_work: "Car For Work",
   health_insurance: "Health Insurance",
+  business_deductions: "Business Deductions",
   hecs: "Study loan",
   debt: "Personal debt",
   housing: "Housing",
@@ -146,6 +150,10 @@ export function QuestionnaireFlow() {
         const revenue = answers.annualRevenue ?? 0;
         return salary + revenue > 93000;
       }
+      // Business deductions: only if sole_trader or both (has business income)
+      if (step === "business_deductions") {
+        return emp === "sole_trader" || emp === "both";
+      }
       return true;
     });
   }, [
@@ -178,6 +186,9 @@ export function QuestionnaireFlow() {
         return answers.carForWork != null;
       case "health_insurance":
         return answers.privateHealth != null;
+      case "business_deductions":
+        // Always valid -- all fields default to 0
+        return true;
       case "hecs":
         return answers.hecsDebt != null;
       case "debt":
@@ -233,6 +244,10 @@ export function QuestionnaireFlow() {
           delete next.abnStatus;
           delete next.annualRevenue;
           delete next.gstStatus;
+        }
+        // Clear business deductions if no longer a business owner
+        if (value !== "sole_trader" && value !== "both") {
+          delete next.businessDeductions;
         }
         // Clear salary if no longer relevant
         if (
@@ -333,6 +348,10 @@ export function QuestionnaireFlow() {
 
   const setPrivateHealth = useCallback((value: PrivateHealthInsurance) => {
     setAnswers((prev) => ({ ...prev, privateHealth: value }));
+  }, []);
+
+  const setBusinessDeductions = useCallback((value: BusinessDeductions) => {
+    setAnswers((prev) => ({ ...prev, businessDeductions: value }));
   }, []);
 
   const setHousingStatus = useCallback((value: HousingStatus) => {
@@ -520,6 +539,12 @@ export function QuestionnaireFlow() {
           <StepHealthInsurance
             privateHealth={answers.privateHealth}
             onChange={setPrivateHealth}
+          />
+        )}
+        {currentStep === "business_deductions" && (
+          <StepBusinessDeductions
+            deductions={answers.businessDeductions}
+            onChange={setBusinessDeductions}
           />
         )}
         {currentStep === "hecs" && (

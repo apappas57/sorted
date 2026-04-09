@@ -55,6 +55,36 @@ export type ActionsSection = {
   beforeEOFY: string[];
 };
 
+export type BusinessDeductionBreakdown = {
+  category: string;
+  amount: number;
+  note: string;
+};
+
+export type BusinessDeductionsSection = {
+  applicable: boolean;
+  instantWriteOff: {
+    total: number;
+    taxSaving: number;
+    breakdown: BusinessDeductionBreakdown[];
+  };
+  depreciation: {
+    totalAssetValue: number;
+    annualDepreciation: number;
+    taxSaving: number;
+    explanation: string;
+  };
+  homeOffice: {
+    method: string;
+    annualDeduction: number;
+    explanation: string;
+  };
+  totalDeductions: number;
+  totalTaxSaving: number;
+  warnings: string[];
+  tips: string[];
+};
+
 export type DiscoveryItem = {
   title: string;
   amount: number;
@@ -74,6 +104,7 @@ export type ReportData = {
   tax: TaxSection;
   bas: BASSection;
   deductions: DeductionsSection;
+  businessDeductions?: BusinessDeductionsSection;
   debt: DebtSection;
   benefits: BenefitsSection;
   actions: ActionsSection;

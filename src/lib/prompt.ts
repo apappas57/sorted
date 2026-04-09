@@ -7,6 +7,7 @@ import type {
   HousingStatus,
   AgeRange,
   FamilyStatus,
+  BusinessDeductions,
 } from "@/types/questionnaire";
 import { siteConfig } from "@/config/site";
 
@@ -51,6 +52,35 @@ const REPORT_JSON_SCHEMA = `{
     ],
     "totalEstimatedDeductions": <number>,
     "explanation": "<string>"
+  },
+  "businessDeductions": {
+    "applicable": <boolean, true if the person provided business deduction data>,
+    "instantWriteOff": {
+      "total": <number, total value of items under $20K that are instantly deductible>,
+      "taxSaving": <number, instantWriteOff total multiplied by the person's marginal tax rate>,
+      "breakdown": [
+        {
+          "category": "<string, e.g. 'Tools & Equipment'>",
+          "amount": <number>,
+          "note": "<string, brief note about the deduction>"
+        }
+      ]
+    },
+    "depreciation": {
+      "totalAssetValue": <number, total value of assets over $20K>,
+      "annualDepreciation": <number, estimated annual depreciation amount>,
+      "taxSaving": <number, annual depreciation multiplied by marginal tax rate>,
+      "explanation": "<string, explain the depreciation calculation, effective life used>"
+    },
+    "homeOffice": {
+      "method": "<string, 'Fixed Rate' or 'Actual' or 'N/A'>",
+      "annualDeduction": <number>,
+      "explanation": "<string>"
+    },
+    "totalDeductions": <number, sum of all business deductions including instant write-off + annual depreciation + home office>,
+    "totalTaxSaving": <number, total tax saving from all business deductions>,
+    "warnings": ["<string, any flags like unusually high deductions or missing records advice>"],
+    "tips": ["<string, practical advice>"]
   },
   "debt": {
     "strategy": "<string, e.g. 'avalanche' or 'snowball' or 'no debt'>",
@@ -297,6 +327,39 @@ Sole Trader Tax: Same individual rates, but must set aside for tax + super (12% 
 Superannuation Guarantee Rate: 12% (from 1 July 2025).
 Concessional Contributions Cap: $30,000 per year.
 
+BUSINESS DEDUCTIONS PROCESSING:
+When businessDeductions data is provided, you MUST:
+
+1. INSTANT WRITE-OFF (items under $20,000 each):
+   - Sum all provided deduction amounts (tools, technology, vehicle expenses, subscriptions, professional development, clothing, other).
+   - These are fully deductible in the year of purchase under the Instant Asset Write-Off scheme.
+   - Calculate tax saving = total instant write-off amount x marginal tax rate.
+   - Subtract these from taxable income when calculating the tax estimate.
+   - The $20,000 threshold is PER ITEM, not a total cap.
+
+2. LARGE ASSETS (over $20,000 each):
+   - Assets over $20,000 must be depreciated over their effective life using the ATO's diminishing value method.
+   - Use these ATO effective lives: cars 8 years, computers/laptops 4 years, general tools/machinery 5-10 years, office furniture 10 years.
+   - First year diminishing value depreciation = cost x (200% / effective life in years).
+   - Calculate first-year depreciation and the resulting tax saving.
+
+3. HOME OFFICE:
+   - If method is "hours": calculate deduction = hours per week x 48 working weeks x $0.67.
+   - If method is "actual": note that the person uses the actual cost method. Recommend they compare both methods and use whichever is higher.
+
+4. WARNINGS AND TIPS:
+   - If total business deductions exceed 50% of gross business income, flag this: "Your claimed deductions are more than 50% of your income. The ATO may review claims at this level. Ensure you have receipts and records for everything."
+   - Always recommend keeping receipts and records for all claimed deductions (ATO requires records for 5 years).
+   - Note the $20,000 instant asset write-off threshold and that it applies per item, not as a total.
+   - For home office, recommend comparing the fixed rate and actual cost methods.
+
+5. INTEGRATE WITH TAX CALCULATION:
+   - The annualTaxEstimate in the tax section MUST account for business deductions reducing taxable income.
+   - taxable income = gross income - instant write-off deductions - annual depreciation - home office deduction - other standard deductions.
+   - Recalculate the tax, Medicare levy, and fortnightly set-aside amounts based on the REDUCED taxable income.
+
+6. If businessDeductions is NOT provided, set businessDeductions.applicable to false and use 0 for all numeric fields, empty arrays for lists, and "N/A" for strings.
+
 RESPONSE FORMAT:
 Return a single JSON object matching this exact schema:
 
@@ -414,6 +477,13 @@ export function buildUserPrompt(answers: QuestionnaireAnswers): string {
     lines.push(
       `Family Status: ${formatFamilyStatus(answers.familyStatus)}`
     );
+  }
+
+  // Business deductions
+  if (answers.businessDeductions) {
+    lines.push("");
+    lines.push("Business Deductions (provided by user):");
+    lines.push(formatBusinessDeductions(answers.businessDeductions));
   }
 
   lines.push(`Job Hunting: ${formatJobHunting(answers.jobHunting)}`);
@@ -569,6 +639,87 @@ function formatJobHunting(status: QuestionnaireAnswers["jobHunting"]): string {
     no: "Not job hunting",
   };
   return map[status];
+}
+
+/**
+ * Format business deductions for the AI prompt.
+ */
+function formatBusinessDeductions(d: BusinessDeductions): string {
+  const lines: string[] = [];
+
+  if (d.toolsAndEquipment > 0) {
+    lines.push(
+      `  - Tools & Equipment (under $20K each): $${d.toolsAndEquipment.toLocaleString("en-AU")}`
+    );
+  }
+  if (d.technology > 0) {
+    lines.push(
+      `  - Technology (laptops, phones, software): $${d.technology.toLocaleString("en-AU")}`
+    );
+  }
+  if (d.vehicleExpenses > 0) {
+    lines.push(
+      `  - Vehicle Expenses (additional): $${d.vehicleExpenses.toLocaleString("en-AU")}`
+    );
+  }
+  if (d.subscriptions > 0) {
+    lines.push(
+      `  - Subscriptions & Memberships: $${d.subscriptions.toLocaleString("en-AU")}`
+    );
+  }
+  if (d.professionalDevelopment > 0) {
+    lines.push(
+      `  - Professional Development: $${d.professionalDevelopment.toLocaleString("en-AU")}`
+    );
+  }
+  if (d.clothing > 0) {
+    lines.push(
+      `  - Protective Clothing: $${d.clothing.toLocaleString("en-AU")}`
+    );
+  }
+  if (d.otherDeductions > 0) {
+    lines.push(
+      `  - Other Business Expenses: $${d.otherDeductions.toLocaleString("en-AU")}`
+    );
+  }
+
+  const instantTotal =
+    d.toolsAndEquipment +
+    d.technology +
+    d.vehicleExpenses +
+    d.subscriptions +
+    d.professionalDevelopment +
+    d.clothing +
+    d.otherDeductions;
+
+  if (instantTotal > 0) {
+    lines.push(
+      `  Total Instant Write-Off Eligible: $${instantTotal.toLocaleString("en-AU")}`
+    );
+  }
+
+  lines.push(
+    `  Home Office Method: ${d.homeOfficeMethod === "hours" ? "Fixed Rate (67c/hour)" : "Actual Expenses"}`
+  );
+  if (d.homeOfficeMethod === "hours" && d.homeOfficeHoursPerWeek > 0) {
+    lines.push(`  Home Office Hours Per Week: ${d.homeOfficeHoursPerWeek}`);
+    const estimate = d.homeOfficeHoursPerWeek * 48 * 0.67;
+    lines.push(
+      `  Estimated Home Office Deduction: $${Math.round(estimate).toLocaleString("en-AU")}/year`
+    );
+  }
+
+  if (d.totalAssetPurchases > 0) {
+    lines.push(
+      `  Large Assets Over $20,000 (to be depreciated): $${d.totalAssetPurchases.toLocaleString("en-AU")}`
+    );
+  }
+
+  if (lines.length === 0) {
+    return "  No business deductions entered.";
+  }
+
+  return lines.join("\n");
 }
 
 /**

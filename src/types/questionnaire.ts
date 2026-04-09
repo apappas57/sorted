@@ -57,6 +57,21 @@ export type DebtEntry = {
   amount?: number;
 };
 
+export type HomeOfficeMethod = "hours" | "actual";
+
+export type BusinessDeductions = {
+  toolsAndEquipment: number;
+  technology: number;
+  vehicleExpenses: number;
+  homeOfficeMethod: HomeOfficeMethod;
+  homeOfficeHoursPerWeek: number;
+  subscriptions: number;
+  professionalDevelopment: number;
+  clothing: number;
+  otherDeductions: number;
+  totalAssetPurchases: number;
+};
+
 export type QuestionnaireStep =
   | "employment"
   | "abn"
@@ -67,6 +82,7 @@ export type QuestionnaireStep =
   | "work_from_home"
   | "car_for_work"
   | "health_insurance"
+  | "business_deductions"
   | "housing"
   | "life_situation"
   | "job_hunting"
@@ -115,6 +131,9 @@ export type QuestionnaireAnswers = {
   // Step 11: Life situation (always shown)
   ageRange?: AgeRange;
   familyStatus?: FamilyStatus;
+
+  // Business deductions (conditional: sole_trader, both, or casual with ABN)
+  businessDeductions?: BusinessDeductions;
 
   // Step 7: State/territory (always shown)
   state: AustralianState;
