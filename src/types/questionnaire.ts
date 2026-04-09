@@ -23,6 +23,13 @@ export type WorkFromHome = "yes" | "sometimes" | "no";
 
 export type CarForWork = "yes" | "no";
 
+export type AnnualKmsRange =
+  | "under_5000"
+  | "5000_15000"
+  | "15000_25000"
+  | "25000_40000"
+  | "over_40000";
+
 export type PrivateHealthInsurance = "yes" | "no";
 
 export type HousingStatus = "renting" | "mortgage" | "neither";
@@ -96,6 +103,7 @@ export type QuestionnaireAnswers = {
   // Step 5: Car for work (conditional: if employed)
   carForWork?: CarForWork;
   estimatedWorkKms?: number;
+  annualKms?: AnnualKmsRange;
 
   // Step 6: Private health insurance (conditional: salary > $90K)
   privateHealth?: PrivateHealthInsurance;

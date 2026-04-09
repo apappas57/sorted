@@ -3,12 +3,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt, buildUserPrompt } from "@/lib/prompt";
 import { parseReportResponse } from "@/lib/report-schema";
 import { sanitizeString, sanitizeNumber, isValidState } from "@/lib/sanitize";
+import { validateTaxFigures } from "@/lib/tax-calculator";
 import { siteConfig } from "@/config/site";
 import type {
   QuestionnaireAnswers,
   AustralianState,
   WorkFromHome,
   CarForWork,
+  AnnualKmsRange,
   PrivateHealthInsurance,
   HousingStatus,
   AgeRange,
@@ -86,6 +88,13 @@ const VALID_DEBT_TYPES = new Set([
 const VALID_JOB_HUNTING = new Set(["actively", "casually", "no"]);
 const VALID_WORK_FROM_HOME = new Set(["yes", "sometimes", "no"]);
 const VALID_CAR_FOR_WORK = new Set(["yes", "no"]);
+const VALID_ANNUAL_KMS = new Set([
+  "under_5000",
+  "5000_15000",
+  "15000_25000",
+  "25000_40000",
+  "over_40000",
+]);
 const VALID_PRIVATE_HEALTH = new Set(["yes", "no"]);
 const VALID_HOUSING_STATUS = new Set(["renting", "mortgage", "neither"]);
 const VALID_AGE_RANGE = new Set(["18-29", "30-39", "40-49", "50-59", "60+"]);
@@ -272,6 +281,19 @@ function validateAndSanitize(body: unknown): ValidationResult {
     estimatedWorkKms = num;
   }
 
+  // --- Optional: Annual Kms Range ---
+  let annualKms: AnnualKmsRange | undefined;
+  if (raw.annualKms !== undefined && raw.annualKms !== null) {
+    if (typeof raw.annualKms !== "string") {
+      return { ok: false, error: "Invalid annual kilometres range." };
+    }
+    const cleaned = sanitizeString(raw.annualKms);
+    if (!VALID_ANNUAL_KMS.has(cleaned)) {
+      return { ok: false, error: "Invalid annual kilometres range." };
+    }
+    annualKms = cleaned as AnnualKmsRange;
+  }
+
   // --- Optional: Private Health Insurance ---
   let privateHealth: PrivateHealthInsurance | undefined;
   if (raw.privateHealth !== undefined && raw.privateHealth !== null) {
@@ -349,6 +371,7 @@ function validateAndSanitize(body: unknown): ValidationResult {
     ...(workFromHomeHours !== undefined ? { workFromHomeHours } : {}),
     ...(carForWork !== undefined ? { carForWork } : {}),
     ...(estimatedWorkKms !== undefined ? { estimatedWorkKms } : {}),
+    ...(annualKms !== undefined ? { annualKms } : {}),
     ...(privateHealth !== undefined ? { privateHealth } : {}),
     ...(housingStatus !== undefined ? { housingStatus } : {}),
     ...(weeklyRent !== undefined ? { weeklyRent } : {}),
@@ -494,10 +517,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 6. Record the successful request for rate limiting
+    // 6. Validate tax figures against deterministic calculation
+    const estimatedIncome =
+      (answers.annualSalary ?? 0) + (answers.annualRevenue ?? 0);
+
+    if (estimatedIncome > 0) {
+      const hasPrivateHealth = answers.privateHealth === "yes";
+      const validated = validateTaxFigures(
+        {
+          annualTaxEstimate: reportData.tax.annualTaxEstimate,
+          medicareLevy: reportData.tax.medicareLevy,
+          estimatedTaxRate: reportData.tax.estimatedTaxRate,
+          fortnightlySetAside: reportData.tax.fortnightlySetAside,
+        },
+        estimatedIncome,
+        hasPrivateHealth
+      );
+
+      if (validated.corrected) {
+        reportData.tax.annualTaxEstimate = validated.annualTaxEstimate;
+        reportData.tax.medicareLevy = validated.medicareLevy;
+        reportData.tax.estimatedTaxRate = validated.estimatedTaxRate;
+        reportData.tax.fortnightlySetAside = validated.fortnightlySetAside;
+      }
+    }
+
+    // 7. Record the successful request for rate limiting
     recordRequest(ip);
 
-    // 7. Return the validated report
+    // 8. Return the validated report
     return NextResponse.json(reportData, {
       status: 200,
       headers: {

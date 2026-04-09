@@ -2,6 +2,7 @@ import type {
   QuestionnaireAnswers,
   WorkFromHome,
   CarForWork,
+  AnnualKmsRange,
   PrivateHealthInsurance,
   HousingStatus,
   AgeRange,
@@ -116,19 +117,56 @@ Scan for ALL of the following opportunities based on the person's answers:
    Source: ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/working-from-home-expenses
 
 2. VEHICLE DEDUCTION OPTIMISATION
-   Trigger: carForWork is "yes" and estimatedWorkKms is provided.
-   Method comparison:
-   - Cents-per-km method: $0.85 per km, maximum 5,000 km per year (max claim $4,250).
-   - Logbook method: actual expenses proportioned by business use percentage (no km cap).
-   If estimatedWorkKms > 5,000, flag that the logbook method likely yields a higher deduction.
+   Trigger: carForWork is "yes" and estimatedWorkKms and/or annualKms are provided.
+
+   IMPORTANT: You MUST calculate and show the TOTAL estimated annual vehicle running cost, then apply the business-use percentage. Do not just show the deduction amount without explaining the underlying vehicle costs.
+
+   **Step 1: Estimate total annual vehicle running costs based on annualKms.**
+   Use these benchmark costs (average Australian car):
+   - Fuel: ~15 cents per km (e.g. 30,000 km = ~$4,500/year)
+   - Insurance: ~$1,800/year
+   - Registration: ~$850/year
+   - Servicing & tyres: ~$1,200/year for under 15,000 km, ~$1,800/year for 15,000-25,000 km, ~$2,400/year for 25,000-40,000 km, ~$3,000/year for over 40,000 km
+   - Depreciation: ~$3,000-5,000/year (based on ATO effective life of 8 years for a car valued ~$30,000-40,000)
+   - Loan interest: ~$1,500/year (estimate, if car is financed -- assume typical for tradies)
+   - Tolls & parking: ~$500-1,500/year depending on city driving
+
+   Annualised total running cost benchmarks by annualKms range:
+   - under_5000: ~$6,000-8,000/year
+   - 5000_15000: ~$8,000-11,000/year
+   - 15000_25000: ~$11,000-14,000/year
+   - 25000_40000: ~$14,000-18,000/year (typical for tradies doing 30k km is ~$15,000-16,000)
+   - over_40000: ~$18,000-22,000/year
+
+   **Step 2: Calculate the business-use percentage.**
+   Business-use % = estimatedWorkKms / midpoint of annualKms range.
+   Midpoints: under_5000 = 3,000; 5000_15000 = 10,000; 15000_25000 = 20,000; 25000_40000 = 32,500; over_40000 = 45,000.
+
+   **Step 3: Compare both ATO methods.**
+
+   Method A - Cents per km (2025-26): $0.88 per km, MAXIMUM 5,000 business km.
+   - Max deduction = $4,400 (5,000 x $0.88).
+   - Only viable if work kms <= 5,000.
+
+   Method B - Logbook method: Total running costs x business-use %.
+   - No km cap. Requires a 12-week logbook (valid for 5 years).
+   - Include ALL costs: fuel, insurance, rego, servicing, depreciation, loan interest, tolls, parking.
+
+   **Step 4: Show the comparison clearly in the report.**
+   Format the explanation like this:
+   "At [annualKms range] total km/year with [estimatedWorkKms] work km, total estimated vehicle running costs are approximately $[total]. With a [X]% business-use ratio, the logbook method deduction would be approximately $[logbook amount], compared to $[cents-per-km amount] using the cents per km method. The [recommended method] is better by $[difference]."
+
+   If estimatedWorkKms > 5,000, ALWAYS recommend the logbook method and explain why (the cents-per-km method caps at 5,000 km / $4,400).
+   If estimatedWorkKms <= 5,000, compare both and recommend whichever is higher.
+
    Source: ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/vehicles-and-travel-expenses/motor-vehicle-expenses
 
 3. MEDICARE LEVY SURCHARGE AVOIDANCE
-   Trigger: privateHealth is "no" AND estimated income exceeds $93,000 (singles) or $186,000 (families).
+   Trigger: privateHealth is "no" AND estimated income exceeds $101,000 (singles) or $202,000 (families).
    MLS rates:
-   - $93,001-$108,000 (singles) / $186,001-$216,000 (families): 1.0%
-   - $108,001-$144,000 / $216,001-$288,000: 1.25%
-   - $144,001+ / $288,001+: 1.5%
+   - $101,000-$117,999 (singles) / $202,000-$235,999 (families): 1.0%
+   - $118,000-$157,999 / $236,000-$315,999: 1.25%
+   - $158,000+ / $316,000+: 1.5%
    Calculation: income * applicable MLS rate. Compare against cost of basic hospital cover (~$1,200-$1,500/year) to show net saving.
    Source: ato.gov.au/individuals-and-families/medicare-and-private-health-insurance/medicare-levy-surcharge
 
@@ -177,9 +215,9 @@ Scan for ALL of the following opportunities based on the person's answers:
    Source: ato.gov.au/businesses-and-organisations/gst-excise-and-indirect-taxes/gst/registering-for-gst
 
 10. HECS THRESHOLD MANAGEMENT
-    Trigger: hecsDebt is "yes" and estimated income is near a repayment threshold boundary (within $3,000 of a threshold).
-    How it works: HECS repayment rates jump at each threshold. Salary sacrificing or timing income can keep repayment income below a threshold, reducing the HECS repayment rate.
-    Example: income at $67,000 triggers 2.5% ($1,675). Reducing to $66,620 triggers 2.0% ($1,332). Saving: $343 in compulsory repayments.
+    Trigger: hecsDebt is "yes" and estimated income is near the $67,000 repayment threshold (within $3,000).
+    How it works: From 2025-26, HECS uses a MARGINAL repayment system. Repayments are 15% on income above $67,000 (not a percentage of total income). Salary sacrificing or timing income to stay below $67,000 avoids triggering any repayment.
+    Example: income at $70,000 triggers ($70,000 - $67,000) * 15% = $450. Reducing to $66,999 triggers $0. Saving: $450 in compulsory repayments.
     Source: ato.gov.au/individuals-and-families/study-and-training-support-loans/study-and-training-support-loan-repayment-thresholds-and-rates
 
 11. SALARY SACRIFICE OPPORTUNITY
@@ -187,7 +225,7 @@ Scan for ALL of the following opportunities based on the person's answers:
     How it works: pre-tax super contributions are taxed at 15% instead of the marginal rate.
     Tax saving: (marginal rate minus 15%) * sacrifice amount.
     For someone on $80,000 (30% marginal), sacrificing $5,000 saves $750 in tax.
-    Concessional cap: $30,000 per year total (including employer contributions at 11.5%).
+    Concessional cap: $30,000 per year total (including employer contributions at 12%).
     Source: ato.gov.au/individuals-and-families/super/growing-and-keeping-track-of-your-super/how-to-save-more-in-your-super/salary-sacrificing-super
 
 12. PRIVATE HEALTH INSURANCE REBATE
@@ -218,36 +256,24 @@ Tax Brackets (Residents):
 Medicare Levy: 2% of taxable income (reduced for low-income earners below $26,000)
 
 Medicare Levy Surcharge (no private hospital cover):
-- Singles $93,001-$108,000 / Families $186,001-$216,000: 1.0%
-- Singles $108,001-$144,000 / Families $216,001-$288,000: 1.25%
-- Singles $144,001+ / Families $288,001+: 1.5%
+- Singles $101,000-$117,999 / Families $202,000-$235,999: 1.0%
+- Singles $118,000-$157,999 / Families $236,000-$315,999: 1.25%
+- Singles $158,000+ / Families $316,000+: 1.5%
 
-HECS-HELP Repayment Thresholds (${siteConfig.financialYear}):
-- Below $54,435: Nil
-- $54,435 - $62,850: 1.0%
-- $62,851 - $66,620: 2.0%
-- $66,621 - $70,618: 2.5%
-- $70,619 - $74,855: 3.0%
-- $74,856 - $79,346: 3.5%
-- $79,347 - $84,107: 4.0%
-- $84,108 - $89,154: 4.5%
-- $89,155 - $94,503: 5.0%
-- $94,504 - $100,174: 5.5%
-- $100,175 - $106,185: 6.0%
-- $106,186 - $112,556: 6.5%
-- $112,557 - $119,309: 7.0%
-- $119,310 - $126,467: 7.5%
-- $126,468 - $134,056: 8.0%
-- $134,057 - $142,100: 8.5%
-- $142,101 - $150,626: 9.0%
-- $150,627 - $159,663: 9.5%
-- $159,664+: 10.0%
+HECS-HELP Repayment Thresholds (${siteConfig.financialYear}) -- NEW MARGINAL SYSTEM:
+Repayments are calculated on income ABOVE the threshold, NOT on total income (except top tier).
+- Below $67,000: Nil
+- $67,001 - $125,000: 15% on income above $67,000
+- $125,001 - $179,285: $8,700 plus 17% on income above $125,000
+- $179,286+: 10% of total repayment income
 
 Home Office Fixed Rate: $0.67 per hour (covers electricity, internet, phone, stationery, computer consumables).
 
-Vehicle Deductions:
-- Cents-per-km method: $0.85 per km, maximum 5,000 km per year.
-- Logbook method: actual expenses proportioned by business-use percentage (no km cap).
+Vehicle Deductions (2025-26):
+- Cents-per-km method: $0.88 per km, maximum 5,000 business km per year (max deduction $4,400).
+- Logbook method: total actual running costs x business-use percentage (no km cap). Requires a valid 12-week logbook.
+- Typical total running cost for a car doing 30,000 km/year: ~$15,000-16,000 (fuel + insurance + rego + servicing + depreciation + loan interest + tolls).
+- Always recommend logbook method when work kms exceed 5,000.
 
 Commonwealth Rent Assistance (maximum fortnightly rates):
 - Single, no children: $188.20/fortnight.
@@ -266,9 +292,9 @@ BAS Lodgement:
 - Monthly: due 21 days after month end
 - Annual: due with income tax return
 
-Sole Trader Tax: Same individual rates, but must set aside for tax + super (11.5% from 1 July 2025).
+Sole Trader Tax: Same individual rates, but must set aside for tax + super (12% from 1 July 2025).
 
-Superannuation Guarantee Rate: 11.5% (from 1 July 2025).
+Superannuation Guarantee Rate: 12% (from 1 July 2025).
 Concessional Contributions Cap: $30,000 per year.
 
 RESPONSE FORMAT:
@@ -319,10 +345,23 @@ export function buildUserPrompt(answers: QuestionnaireAnswers): string {
   // Car for work
   if (answers.carForWork) {
     lines.push(`Uses Own Car For Work: ${formatCarForWork(answers.carForWork)}`);
+    if (answers.annualKms) {
+      lines.push(
+        `Total Annual Kilometres Driven (all purposes): ${formatAnnualKms(answers.annualKms)}`
+      );
+    }
     if (answers.estimatedWorkKms !== undefined) {
       lines.push(
-        `Estimated Annual Work Kilometres: ${answers.estimatedWorkKms.toLocaleString("en-AU")} km`
+        `Estimated Annual Work-Related Kilometres: ${answers.estimatedWorkKms.toLocaleString("en-AU")} km`
       );
+    }
+    if (answers.annualKms && answers.estimatedWorkKms !== undefined) {
+      const midpoint = getAnnualKmsMidpoint(answers.annualKms);
+      const businessPct = Math.min(
+        100,
+        Math.round((answers.estimatedWorkKms / midpoint) * 100)
+      );
+      lines.push(`Estimated Business-Use Percentage: ${businessPct}%`);
     }
   }
 
@@ -447,6 +486,28 @@ function formatCarForWork(status: CarForWork): string {
     no: "No",
   };
   return map[status];
+}
+
+function formatAnnualKms(range: AnnualKmsRange): string {
+  const map: Record<AnnualKmsRange, string> = {
+    under_5000: "Under 5,000 km/year",
+    "5000_15000": "5,000 - 15,000 km/year",
+    "15000_25000": "15,000 - 25,000 km/year",
+    "25000_40000": "25,000 - 40,000 km/year",
+    over_40000: "Over 40,000 km/year",
+  };
+  return map[range];
+}
+
+function getAnnualKmsMidpoint(range: AnnualKmsRange): number {
+  const map: Record<AnnualKmsRange, number> = {
+    under_5000: 3000,
+    "5000_15000": 10000,
+    "15000_25000": 20000,
+    "25000_40000": 32500,
+    over_40000: 45000,
+  };
+  return map[range];
 }
 
 function formatPrivateHealth(status: PrivateHealthInsurance): string {

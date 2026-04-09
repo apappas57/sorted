@@ -13,6 +13,7 @@ import type {
   AustralianState,
   WorkFromHome,
   CarForWork,
+  AnnualKmsRange,
   PrivateHealthInsurance,
   HousingStatus,
   AgeRange,
@@ -245,6 +246,7 @@ export function QuestionnaireFlow() {
         if (value === "not_working") {
           delete next.carForWork;
           delete next.estimatedWorkKms;
+          delete next.annualKms;
         }
         return next;
       });
@@ -311,11 +313,22 @@ export function QuestionnaireFlow() {
   }, []);
 
   const setCarForWork = useCallback((value: CarForWork) => {
-    setAnswers((prev) => ({ ...prev, carForWork: value }));
+    setAnswers((prev) => {
+      const next = { ...prev, carForWork: value };
+      if (value === "no") {
+        delete next.estimatedWorkKms;
+        delete next.annualKms;
+      }
+      return next;
+    });
   }, []);
 
   const setEstimatedWorkKms = useCallback((value: number | undefined) => {
     setAnswers((prev) => ({ ...prev, estimatedWorkKms: value }));
+  }, []);
+
+  const setAnnualKms = useCallback((value: AnnualKmsRange) => {
+    setAnswers((prev) => ({ ...prev, annualKms: value }));
   }, []);
 
   const setPrivateHealth = useCallback((value: PrivateHealthInsurance) => {
@@ -499,6 +512,8 @@ export function QuestionnaireFlow() {
             onChange={setCarForWork}
             estimatedWorkKms={answers.estimatedWorkKms}
             onKmsChange={setEstimatedWorkKms}
+            annualKms={answers.annualKms}
+            onAnnualKmsChange={setAnnualKms}
           />
         )}
         {currentStep === "health_insurance" && (
