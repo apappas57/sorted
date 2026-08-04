@@ -242,7 +242,7 @@ export default function Home() {
           </p>
           <div className="mt-10">
             <Button href="/get-sorted" size="lg">
-              Get Sorted — it&apos;s free
+              Get Sorted, it&apos;s free
             </Button>
           </div>
         </div>
@@ -328,7 +328,7 @@ export default function Home() {
           </p>
           <div className="mt-8">
             <Button href="/get-sorted" size="lg">
-              Get Sorted — it&apos;s free
+              Get Sorted, it&apos;s free
             </Button>
           </div>
         </div>
