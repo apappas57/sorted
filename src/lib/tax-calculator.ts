@@ -1,5 +1,5 @@
 /**
- * Deterministic Australian tax calculator for 2025-26.
+ * Deterministic Australian tax calculator for 2026-27.
  *
  * Used to validate AI-generated tax figures. If the AI's numbers deviate
  * from the deterministic calculation by more than the allowed tolerance,

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Disclaimer } from "@/components/ui/Disclaimer";
+import { siteConfig } from "@/config/site";
 
 const steps = [
   {
@@ -284,7 +285,7 @@ export default function Home() {
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-text-secondary">
             A personalised report covering everything you need to know for the
-            2025-26 financial year.
+            {siteConfig.financialYear} financial year.
           </p>
 
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

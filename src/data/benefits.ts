@@ -1,4 +1,5 @@
-// Australian Government Benefits and Programs - 2025-26 Financial Year
+// Australian Government Benefits and Programs - 2026-27 Financial Year
+// Verified 4 August 2026.
 // Sources: ATO, Services Australia, business.gov.au
 // These are general guides only - eligibility depends on individual circumstances.
 
@@ -50,19 +51,19 @@ export const GOVERNMENT_BENEFITS: GovernmentBenefit[] = [
 
   {
     id: 'instant-asset-writeoff',
-    name: 'Instant Asset Write-Off ($20,000)',
+    name: 'Instant Asset Write-Off (currently $1,000, $20,000 pending)',
     category: 'business',
     description:
-      'Small businesses can immediately deduct the full cost of eligible assets costing less than $20,000 each. Applies per asset, so multiple assets can be claimed. Extended to 30 June 2026.',
+      'Small businesses can immediately deduct the full cost of eligible assets under the threshold, per asset. The $20,000 threshold EXPIRED on 30 June 2026, so the legislated threshold for 2026-27 is $1,000. A permanent $20,000 threshold is before Parliament (Senate committee reports 13 August 2026) but is not yet law. Check with your accountant before timing a large purchase.',
     eligibility: [
       'Business with aggregated annual turnover under $10 million',
-      'Asset costs less than $20,000 (before GST if registered)',
-      'Asset is first used or installed ready for use between 1 July 2025 and 30 June 2026',
+      'Asset costs less than $1,000 (before GST if registered) under current law',
+      'Asset is first used or installed ready for use between 1 July 2026 and 30 June 2027',
       'Both new and second-hand assets eligible',
     ],
     howToApply: 'Claim in your business tax return. No pre-approval needed.',
-    estimatedValue: 'Up to $20,000 deduction per asset',
-    url: 'https://www.ato.gov.au/businesses-and-organisations/small-business-newsroom/20000-instant-asset-write-off-for-2025-26',
+    estimatedValue: 'Up to $1,000 deduction per asset ($20,000 pending legislation)',
+    url: 'https://www.ato.gov.au/about-ato/new-legislation/in-detail/businesses/small-business-support-20000-dollar-instant-asset-write-off',
     relevantTo: ['sole_trader', 'both'],
   },
   {

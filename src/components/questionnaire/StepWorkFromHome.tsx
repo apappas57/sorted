@@ -100,7 +100,7 @@ export function StepWorkFromHome({
             How many hours per week do you work from home?
           </label>
           <p className="text-sm text-text-secondary mb-3">
-            This helps calculate your home office deduction. The ATO allows $0.67 per hour.
+            This helps calculate your home office deduction. The ATO allows $0.70 per hour.
           </p>
           <input
             id="wfh-hours"

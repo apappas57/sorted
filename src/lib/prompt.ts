@@ -57,7 +57,7 @@ const REPORT_JSON_SCHEMA = `{
   "businessDeductions": {
     "applicable": <boolean, true if the person provided business deduction data>,
     "instantWriteOff": {
-      "total": <number, total value of items under $20K that are instantly deductible>,
+      "total": <number, total value of capital items that are instantly deductible at the CURRENT legislated threshold of $1,000 per item>,
       "taxSaving": <number, instantWriteOff total multiplied by the person's marginal tax rate>,
       "breakdown": [
         {
@@ -142,8 +142,8 @@ Scan for ALL of the following opportunities based on the person's answers:
 
 1. HOME OFFICE DEDUCTIONS
    Trigger: workFromHome is "yes" or "sometimes" and workFromHomeHours is provided.
-   Rate: Fixed rate method at $0.67 per hour.
-   Calculation: workFromHomeHours * 48 working weeks * $0.67.
+   Rate: Fixed rate method at $0.70 per hour.
+   Calculation: workFromHomeHours * 48 working weeks * $0.70.
    Note: Covers electricity, internet, phone, stationery, computer depreciation.
    Source: ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/working-from-home-expenses
 
@@ -175,8 +175,8 @@ Scan for ALL of the following opportunities based on the person's answers:
 
    **Step 3: Compare both ATO methods.**
 
-   Method A - Cents per km (2025-26): $0.88 per km, MAXIMUM 5,000 business km.
-   - Max deduction = $4,400 (5,000 x $0.88).
+   Method A - Cents per km (2026-27): $0.91 per km, MAXIMUM 5,000 business km.
+   - Max deduction = $4,550 (5,000 x $0.91).
    - Only viable if work kms <= 5,000.
 
    Method B - Logbook method: Total running costs x business-use %.
@@ -187,17 +187,18 @@ Scan for ALL of the following opportunities based on the person's answers:
    Format the explanation like this:
    "At [annualKms range] total km/year with [estimatedWorkKms] work km, total estimated vehicle running costs are approximately $[total]. With a [X]% business-use ratio, the logbook method deduction would be approximately $[logbook amount], compared to $[cents-per-km amount] using the cents per km method. The [recommended method] is better by $[difference]."
 
-   If estimatedWorkKms > 5,000, ALWAYS recommend the logbook method and explain why (the cents-per-km method caps at 5,000 km / $4,400).
+   If estimatedWorkKms > 5,000, ALWAYS recommend the logbook method and explain why (the cents-per-km method caps at 5,000 km / $4,550).
    If estimatedWorkKms <= 5,000, compare both and recommend whichever is higher.
 
    Source: ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/vehicles-and-travel-expenses/motor-vehicle-expenses
 
 3. MEDICARE LEVY SURCHARGE AVOIDANCE
-   Trigger: privateHealth is "no" AND estimated income exceeds $101,000 (singles) or $202,000 (families).
+   Trigger: privateHealth is "no" AND estimated income exceeds $105,000 (singles) or $210,000 (families).
    MLS rates:
-   - $101,000-$117,999 (singles) / $202,000-$235,999 (families): 1.0%
-   - $118,000-$157,999 / $236,000-$315,999: 1.25%
-   - $158,000+ / $316,000+: 1.5%
+   - $105,001-$123,000 (singles) / $210,001-$246,000 (families): 1.0%
+   - $123,001-$164,000 / $246,001-$328,000: 1.25%
+   - $164,001+ / $328,001+: 1.5%
+   NOTE: the surcharge applies to the WHOLE income, not just the excess above the threshold.
    Calculation: income * applicable MLS rate. Compare against cost of basic hospital cover (~$1,200-$1,500/year) to show net saving.
    Source: ato.gov.au/individuals-and-families/medicare-and-private-health-insurance/medicare-levy-surcharge
 
@@ -209,11 +210,12 @@ Scan for ALL of the following opportunities based on the person's answers:
 
 5. COMMONWEALTH RENT ASSISTANCE
    Trigger: housingStatus is "renting" and weeklyRent is provided, and income is in low-to-moderate range.
-   Maximum rates (${siteConfig.financialYear}):
-   - Single, no children: up to $188.20 per fortnight ($4,893.20/year).
-   - Couple, no children: up to $177.20 per fortnight.
-   - Single or couple with 1-2 children: up to $209.58 per fortnight.
-   - Single or couple with 3+ children: up to $237.18 per fortnight.
+   Maximum rates (current from 20 March 2026; NEXT INDEXATION 20 SEPTEMBER 2026, which falls inside this financial year):
+   - Single, no children: up to $219.40 per fortnight.
+   - Couple, combined, no children: up to $206.80 per fortnight.
+   - Single or couple with 1-2 children: up to $257.88 per fortnight.
+   - Single or couple with 3+ children: up to $291.48 per fortnight.
+   Paid at 75c per $1 of rent above the rent threshold, capped at the maximum.
    Eligibility: must receive an eligible Centrelink payment (e.g., JobSeeker, Youth Allowance, Austudy, Family Tax Benefit Part A at more than base rate).
    Source: servicesaustralia.gov.au/rent-assistance
 
@@ -225,9 +227,9 @@ Scan for ALL of the following opportunities based on the person's answers:
    Source: ato.gov.au/individuals-and-families/super/withdrawing-and-using-your-super/first-home-super-saver-scheme
 
 7. SUPER CO-CONTRIBUTION
-   Trigger: estimated income is less than $58,445 AND employment type is "employee", "both", or "casual".
-   How it works: if the person makes voluntary after-tax super contributions, the government matches up to $500 (for incomes up to $43,445, reducing to $0 at $58,445).
-   Calculation: for income <= $43,445, contribute $1,000 to get $500 from government. For income $43,445-$58,445, the co-contribution reduces by 3.333 cents for every dollar over $43,445.
+   Trigger: estimated income is less than $64,293 AND employment type is "employee", "both", or "casual".
+   How it works: if the person makes voluntary after-tax super contributions, the government matches up to $500 (for incomes up to $49,293, reducing to $0 at $64,293).
+   Calculation: for income <= $49,293, contribute $1,000 to get $500 from government. For income $49,293-$64,293, the co-contribution reduces by 3.333 cents for every dollar over $49,293.
    Source: ato.gov.au/individuals-and-families/super/growing-and-keeping-track-of-your-super/how-to-save-more-in-your-super/government-super-contributions
 
 8. LOW INCOME TAX OFFSET (LITO)
@@ -246,9 +248,10 @@ Scan for ALL of the following opportunities based on the person's answers:
    Source: ato.gov.au/businesses-and-organisations/gst-excise-and-indirect-taxes/gst/registering-for-gst
 
 10. HECS THRESHOLD MANAGEMENT
-    Trigger: hecsDebt is "yes" and estimated income is near the $67,000 repayment threshold (within $3,000).
-    How it works: From 2025-26, HECS uses a MARGINAL repayment system. Repayments are 15% on income above $67,000 (not a percentage of total income). Salary sacrificing or timing income to stay below $67,000 avoids triggering any repayment.
-    Example: income at $70,000 triggers ($70,000 - $67,000) * 15% = $450. Reducing to $66,999 triggers $0. Saving: $450 in compulsory repayments.
+    Trigger: hecsDebt is "yes" and estimated income is near the $69,528 repayment threshold (within $3,000).
+    How it works: HECS uses a MARGINAL repayment system. Repayments are 15% on income above $69,528 (not a percentage of total income). Salary sacrificing or timing income to stay below $69,528 avoids triggering any repayment.
+    Example: income at $72,000 triggers ($72,000 - $69,528) * 15% = $370.80. Reducing to $69,527 triggers $0.
+    NOTE: repayment income is NOT just taxable income - it adds reportable fringe benefits, net investment losses, reportable super contributions and exempt foreign employment income.
     Source: ato.gov.au/individuals-and-families/study-and-training-support-loans/study-and-training-support-loan-repayment-thresholds-and-rates
 
 11. SALARY SACRIFICE OPPORTUNITY
@@ -256,23 +259,25 @@ Scan for ALL of the following opportunities based on the person's answers:
     How it works: pre-tax super contributions are taxed at 15% instead of the marginal rate.
     Tax saving: (marginal rate minus 15%) * sacrifice amount.
     For someone on $80,000 (30% marginal), sacrificing $5,000 saves $750 in tax.
-    Concessional cap: $30,000 per year total (including employer contributions at 12%).
+    Concessional cap: $32,500 per year total (including employer contributions at 12%).
     Source: ato.gov.au/individuals-and-families/super/growing-and-keeping-track-of-your-super/how-to-save-more-in-your-super/salary-sacrificing-super
 
 12. PRIVATE HEALTH INSURANCE REBATE
     Trigger: privateHealth is "yes".
-    Rebate tiers (${siteConfig.financialYear}, singles thresholds):
-    - Income <= $97,000: rebate covers ~24.608% of premium (age < 65).
-    - $97,001-$113,000: 16.405%.
-    - $113,001-$151,000: 8.202%.
-    - $151,001+: 0%.
+    Rebate tiers (1 July 2026 to 31 March 2027, singles thresholds, age < 65):
+    - Income <= $105,000: rebate covers ~24.118% of premium.
+    - $105,001-$123,000: 16.078%.
+    - $123,001-$164,000: 8.039%.
+    - $164,001+: 0%.
+    NOTE: rebate percentages are reset every 1 April. The rates from 1 April 2027 are not published yet.
     Note: many people have PHI but have not confirmed their rebate tier is correct, or are not claiming the rebate at all.
     Source: ato.gov.au/individuals-and-families/medicare-and-private-health-insurance/private-health-insurance-rebate
 
 13. FAMILY TAX BENEFIT
     Trigger: familyStatus is "partner_with_kids" or "single_parent".
-    FTB Part A: up to $6,332.45 per child per year (under 13), income tested.
-    FTB Part B: up to $4,597.35 per family per year (youngest child under 5), income tested.
+    FTB Part A: up to $7,110.20 per child per year (aged 0-12) or $8,960.75 (aged 13-19), income tested, includes the end-of-year supplement of up to $970.90 per child.
+    FTB Part B: up to $5,701.30 per family per year (youngest child 0-4) or $4,124.50 (youngest 5-18), income tested, includes a supplement of up to $478.15 per family.
+    NOTE: Part A is per child; Part B is per family and based on the age of the YOUNGEST child. Couple families lose Part B once the youngest turns 13.
     Source: servicesaustralia.gov.au/family-tax-benefit
 
 14. NOVATED LEASE OPPORTUNITY
@@ -295,12 +300,12 @@ Scan for ALL of the following opportunities based on the person's answers:
     - Scale the estimate proportionally if income or car value differs from the $50K example.
 
     FBT considerations:
-    - FBT rate is 47% for the 2025-26 FBT year.
+    - FBT rate is 47% for the FBT year ending 31 March 2027.
     - Statutory formula: taxable value = car base value x 20% (flat rate) x days available / days in FBT year, minus employee contributions.
     - Under the Employee Contribution Method (ECM), the employee makes post-tax contributions to reduce or eliminate the FBT liability.
     - For zero-emission electric vehicles (battery EVs) first held and used on or after 1 July 2022, there is an FBT exemption -- making novated leases especially attractive for EVs.
     - Plug-in hybrid EVs (PHEVs) are NO LONGER eligible for the FBT exemption from 1 April 2025, unless a pre-existing commitment was in place before that date.
-    - Car limit for depreciation purposes in 2025-26: $69,674.
+    - Car limit for depreciation purposes in 2026-27: $69,883 (max GST credit $6,353).
 
     IMPORTANT LANGUAGE:
     - Say "Based on your income of $[X] and driving pattern, a novated lease could potentially save you approximately $[estimate] per year in tax."
@@ -351,60 +356,69 @@ AUSTRALIAN TAX REFERENCE (${siteConfig.financialYear} FY):
 
 Tax Brackets (Residents):
 - $0 - $18,200: Nil
-- $18,201 - $45,000: 16c per $1 over $18,200
-- $45,001 - $135,000: $4,288 + 30c per $1 over $45,000
-- $135,001 - $190,000: $31,288 + 37c per $1 over $135,000
-- $190,001+: $51,638 + 45c per $1 over $190,000
+- $18,201 - $45,000: 15c per $1 over $18,200
+- $45,001 - $135,000: $4,020 + 30c per $1 over $45,000
+- $135,001 - $190,000: $31,020 + 37c per $1 over $135,000
+- $190,001+: $51,370 + 45c per $1 over $190,000
 
-Medicare Levy: 2% of taxable income (reduced for low-income earners below $26,000)
+Medicare Levy: 2% of taxable income (no levy at or below $28,011 for singles; phased in at 10c per $1 above that until $35,013)
 
 Medicare Levy Surcharge (no private hospital cover):
-- Singles $101,000-$117,999 / Families $202,000-$235,999: 1.0%
-- Singles $118,000-$157,999 / Families $236,000-$315,999: 1.25%
-- Singles $158,000+ / Families $316,000+: 1.5%
+- Singles $105,001-$123,000 / Families $210,001-$246,000: 1.0%
+- Singles $123,001-$164,000 / Families $246,001-$328,000: 1.25%
+- Singles $164,001+ / Families $328,001+: 1.5%
+- Applies to the WHOLE income, not just the excess. In addition to the 2% levy.
 
-HECS-HELP Repayment Thresholds (${siteConfig.financialYear}) -- NEW MARGINAL SYSTEM:
+HECS-HELP Repayment Thresholds (${siteConfig.financialYear}) -- MARGINAL SYSTEM:
 Repayments are calculated on income ABOVE the threshold, NOT on total income (except top tier).
-- Below $67,000: Nil
-- $67,001 - $125,000: 15% on income above $67,000
-- $125,001 - $179,285: $8,700 plus 17% on income above $125,000
-- $179,286+: 10% of total repayment income
+- Below $69,528: Nil
+- $69,529 - $129,717: 15% on income above $69,528
+- $129,718 - $186,050: $9,028 plus 17% on income above $129,717
+- $186,051+: 10% of TOTAL repayment income (flat, from dollar one - not marginal)
 
-Home Office Fixed Rate: $0.67 per hour (covers electricity, internet, phone, stationery, computer consumables).
+Home Office Fixed Rate: $0.70 per hour (covers electricity, gas, internet, phone, stationery, computer consumables). Decline in value of desks, chairs and computers IS claimable separately on top.
 
-Vehicle Deductions (2025-26):
-- Cents-per-km method: $0.88 per km, maximum 5,000 business km per year (max deduction $4,400).
+Vehicle Deductions (2026-27):
+- Cents-per-km method: $0.91 per km, maximum 5,000 business km per year (max deduction $4,550). The rate covers ALL running costs including depreciation - nothing may be claimed separately on top.
 - Logbook method: total actual running costs x business-use percentage (no km cap). Requires a valid 12-week logbook.
 - Typical total running cost for a car doing 30,000 km/year: ~$15,000-16,000 (fuel + insurance + rego + servicing + depreciation + loan interest + tolls).
 - Always recommend logbook method when work kms exceed 5,000.
 
-Commonwealth Rent Assistance (maximum fortnightly rates):
-- Single, no children: $188.20/fortnight.
-- Couple, no children: $177.20/fortnight.
-- Single/couple with 1-2 children: $209.58/fortnight.
-- Single/couple with 3+ children: $237.18/fortnight.
+Commonwealth Rent Assistance (maximum fortnightly rates, from 20 March 2026; re-indexed 20 September 2026):
+- Single, no children: $219.40/fortnight.
+- Couple, combined, no children: $206.80/fortnight.
+- Single/couple with 1-2 children: $257.88/fortnight.
+- Single/couple with 3+ children: $291.48/fortnight.
 
 FHSS Scheme: max $15,000/year, $50,000 total in voluntary super contributions. Contributions taxed at 15% instead of marginal rate.
 
-Super Co-contribution: government matches up to $500 for after-tax voluntary contributions. Full $500 for income up to $43,445, phasing out to $0 at $58,445.
+Super Co-contribution: government matches up to $500 for after-tax voluntary contributions. Full $500 for income up to $49,293, phasing out to $0 at $64,293.
 
 GST Threshold: $75,000 annual turnover (must register). Below $75,000 is voluntary.
+
+Standard Deduction for Work-Related Expenses (NEW for 2026-27):
+- Australian residents who earn income from WORK get an automatic deduction of up to $1,000 for work-related expenses, with no receipts required.
+- First applies to the 2026-27 return. It did NOT apply to 2025-26.
+- People with ONLY business or investment income are not eligible.
+- Cents-per-km and working-from-home fixed-rate claims sit INSIDE this $1,000 envelope. So take the GREATER of their itemised work-related deductions and $1,000, never the sum.
+- Claimable in addition and OUTSIDE the envelope: investment expenses, charitable donations, union and professional association fees, income protection premiums.
+- If someone's itemised work-related expenses come to less than $1,000, flag that the standard deduction leaves them better off with no substantiation burden.
 
 BAS Lodgement:
 - Quarterly: due 28 days after quarter end (28 Oct, 28 Feb, 28 Apr, 28 Jul)
 - Monthly: due 21 days after month end
 - Annual: due with income tax return
 
-Sole Trader Tax: Same individual rates, but must set aside for tax + super (12% from 1 July 2025).
+Sole Trader Tax: Same individual rates, but must set aside for tax + super (12%).
 
-Superannuation Guarantee Rate: 12% (from 1 July 2025).
+Superannuation Guarantee Rate: 12%. NOTE: from 1 July 2026 super guarantee is due EACH PAYDAY ("Payday Super"), not quarterly. The maximum contribution base is now $270,830 per year, replacing the old $62,500 per quarter.
 Concessional Contributions Cap: $30,000 per year.
 
-Novated Lease Reference (2025-26):
+Novated Lease Reference (2026-27):
 - FBT rate: 47% (applies FBT years ending 31 March 2023 to 31 March 2027).
 - Statutory formula: taxable value = base value x 20% x days available / days in year, minus employee contributions.
 - Employee Contribution Method (ECM): post-tax contributions reduce FBT taxable value.
-- Car limit for FBT/depreciation purposes: $69,674 (2025-26).
+- Car limit for FBT/depreciation purposes: $69,883 (2026-27).
 - Zero-emission EVs: FBT exempt if first held/used on or after 1 July 2022 and no LCT payable.
 - PHEVs: no longer eligible for FBT exemption from 1 April 2025 (unless pre-existing commitment).
 - GST saving on vehicle: employer claims GST credit, saving approximately 1/11th of the GST-inclusive price.
@@ -419,27 +433,29 @@ Debt Recycling Reference:
 BUSINESS DEDUCTIONS PROCESSING:
 When businessDeductions data is provided, you MUST:
 
-1. INSTANT WRITE-OFF (items under $20,000 each):
+1. INSTANT WRITE-OFF (items under $1,000 each) -- READ THE THRESHOLD NOTE CAREFULLY:
+   - The $20,000 instant asset write-off EXPIRED on 30 June 2026. For the 2026-27 year the legislated threshold is $1,000 per item.
+   - A permanent $20,000 threshold is currently BEFORE PARLIAMENT (Treasury Laws Amendment (Tax Reform No. 2) Bill 2026). The Senate Economics Legislation Committee reports on 13 August 2026. It is NOT law yet.
    - Sum all provided deduction amounts (tools, technology, vehicle expenses, subscriptions, professional development, clothing, other).
-   - These are fully deductible in the year of purchase under the Instant Asset Write-Off scheme.
+   - Ordinary consumable and running costs remain fully deductible as normal business expenses regardless of the write-off threshold. Only CAPITAL ASSETS are affected by it.
    - Calculate tax saving = total instant write-off amount x marginal tax rate.
    - Subtract these from taxable income when calculating the tax estimate.
-   - The $20,000 threshold is PER ITEM, not a total cap.
+   - You MUST include a warning that the $20,000 threshold is pending legislation, and tell the person to check with their accountant before timing a large purchase. Never advise a purchase decision on the strength of the pending $20,000 figure.
 
-2. LARGE ASSETS (over $20,000 each):
-   - Assets over $20,000 must be depreciated over their effective life using the ATO's diminishing value method.
+2. LARGE ASSETS (capital assets above the write-off threshold):
+   - Assets above the threshold must be depreciated over their effective life using the ATO's diminishing value method.
    - Use these ATO effective lives: cars 8 years, computers/laptops 4 years, general tools/machinery 5-10 years, office furniture 10 years.
    - First year diminishing value depreciation = cost x (200% / effective life in years).
    - Calculate first-year depreciation and the resulting tax saving.
 
 3. HOME OFFICE:
-   - If method is "hours": calculate deduction = hours per week x 48 working weeks x $0.67.
+   - If method is "hours": calculate deduction = hours per week x 48 working weeks x $0.70.
    - If method is "actual": note that the person uses the actual cost method. Recommend they compare both methods and use whichever is higher.
 
 4. WARNINGS AND TIPS:
    - If total business deductions exceed 50% of gross business income, flag this: "Your claimed deductions are more than 50% of your income. The ATO may review claims at this level. Ensure you have receipts and records for everything."
    - Always recommend keeping receipts and records for all claimed deductions (ATO requires records for 5 years).
-   - Note the $20,000 instant asset write-off threshold and that it applies per item, not as a total.
+   - State the instant asset write-off position plainly: $1,000 per item is legislated for 2026-27, and a $20,000 threshold is before Parliament with a committee report due 13 August 2026. Whichever applies, it is PER ITEM, not a total cap.
    - For home office, recommend comparing the fixed rate and actual cost methods.
 
 5. INTEGRATE WITH TAX CALCULATION:
@@ -801,11 +817,11 @@ function formatBusinessDeductions(d: BusinessDeductions): string {
   }
 
   lines.push(
-    `  Home Office Method: ${d.homeOfficeMethod === "hours" ? "Fixed Rate (67c/hour)" : "Actual Expenses"}`
+    `  Home Office Method: ${d.homeOfficeMethod === "hours" ? "Fixed Rate (70c/hour)" : "Actual Expenses"}`
   );
   if (d.homeOfficeMethod === "hours" && d.homeOfficeHoursPerWeek > 0) {
     lines.push(`  Home Office Hours Per Week: ${d.homeOfficeHoursPerWeek}`);
-    const estimate = d.homeOfficeHoursPerWeek * 48 * 0.67;
+    const estimate = d.homeOfficeHoursPerWeek * 48 * 0.70;
     lines.push(
       `  Estimated Home Office Deduction: $${Math.round(estimate).toLocaleString("en-AU")}/year`
     );
@@ -813,7 +829,7 @@ function formatBusinessDeductions(d: BusinessDeductions): string {
 
   if (d.totalAssetPurchases > 0) {
     lines.push(
-      `  Large Assets Over $20,000 (to be depreciated): $${d.totalAssetPurchases.toLocaleString("en-AU")}`
+      `  Large Assets To Be Depreciated: $${d.totalAssetPurchases.toLocaleString("en-AU")}`
     );
   }
 

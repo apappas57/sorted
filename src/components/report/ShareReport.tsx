@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import type { ReportData } from "@/types/report";
 import { Button } from "@/components/ui/Button";
+import { siteConfig } from "@/config/site";
 
 type ShareReportProps = {
   data: ReportData;
@@ -28,7 +29,7 @@ function buildSummaryText(data: ReportData): string {
     lines.push("");
   }
 
-  lines.push("Sorted - Your Financial Summary (2025-26)");
+  lines.push(`Sorted - Your Financial Summary (${siteConfig.financialYear})`);
   lines.push("");
   lines.push(
     `Tax set-aside: ${formatCurrency(data.tax.fortnightlySetAside)}/fortnight`

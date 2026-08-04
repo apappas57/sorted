@@ -1,4 +1,5 @@
-// Common Tax Deductions for Australians - 2025-26 Financial Year
+// Common Tax Deductions for Australians - 2026-27 Financial Year
+// Verified 4 August 2026.
 // Source: ATO - Deductions you can claim
 // https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim
 
@@ -86,12 +87,12 @@ export const DEDUCTIONS_BY_TYPE = [
       {
         name: 'Cents per kilometre method',
         description:
-          'Claim 88 cents per km for work-related travel, up to 5,000 km per year. No written evidence required but must be reasonable.',
-        typicalRange: '$500-$4,400/year',
+          'Claim 91 cents per km for work-related travel, up to 5,000 km per year. No written evidence required but must be reasonable. The rate covers all running costs including depreciation.',
+        typicalRange: '$500-$4,550/year',
         requirements: [
           'Maximum 5,000 business km per year under this method',
           'Must be able to show how you calculated your business km',
-          'Rate is 88 cents per km for 2025-26',
+          'Rate is 91 cents per km for 2026-27',
           'Does NOT include travel from home to your regular workplace',
         ],
         atoLink:
@@ -378,16 +379,16 @@ export const DEDUCTIONS_BY_TYPE = [
       {
         name: 'Instant asset write-off',
         description:
-          'Immediately deduct assets costing less than $20,000 (per asset) for businesses with turnover under $10M.',
-        typicalRange: 'Up to $20,000 per asset',
+          'Immediately deduct capital assets under the threshold (per asset) for businesses with turnover under $10M. The $20,000 threshold expired 30 June 2026; $1,000 applies under current law while a permanent $20,000 sits before Parliament.',
+        typicalRange: 'Up to $1,000 per asset ($20,000 pending legislation)',
         requirements: [
           'Aggregated turnover under $10 million',
-          'Asset costs less than $20,000',
-          'Asset must be first used or installed ready for use by 30 June 2026',
+          'Asset costs less than $1,000 under current law ($20,000 threshold expired 30 June 2026; a permanent $20,000 is before Parliament, committee reports 13 August 2026)',
+          'Asset must be first used or installed ready for use by 30 June 2027',
           'Both new and second-hand assets eligible',
         ],
         atoLink:
-          'https://www.ato.gov.au/businesses-and-organisations/small-business-newsroom/20000-instant-asset-write-off-for-2025-26',
+          'https://www.ato.gov.au/about-ato/new-legislation/in-detail/businesses/small-business-support-20000-dollar-instant-asset-write-off',
       },
       {
         name: 'Advertising and marketing',
@@ -403,12 +404,12 @@ export const DEDUCTIONS_BY_TYPE = [
       {
         name: 'Superannuation contributions',
         description:
-          'Personal super contributions for sole traders. Concessional contributions up to $30,000/year are tax-deductible.',
-        typicalRange: '$1,000-$30,000/year',
+          'Personal super contributions for sole traders. Concessional contributions up to $32,500/year are tax-deductible.',
+        typicalRange: '$1,000-$32,500/year',
         requirements: [
           'Must lodge a notice of intent to claim with your super fund',
           'Super fund must acknowledge the notice before you lodge your tax return',
-          'Concessional cap: $30,000 per year (2025-26)',
+          'Concessional cap: $32,500 per year (2026-27)',
           'Unused cap amounts from prior years may be carried forward',
         ],
       },

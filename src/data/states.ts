@@ -1,6 +1,6 @@
 // Australian States and Territories - Tax and Benefit Information
 // Source: State revenue offices, state government websites
-// Data accurate for 2025-26 financial year
+// Data accurate for 2026-27 financial year (verified 4 August 2026)
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

@@ -41,6 +41,7 @@ import { StepLifeSituation } from "./StepLifeSituation";
 import { StepJobHunting } from "./StepJobHunting";
 import { StepState } from "./StepState";
 import { StepBusinessDeductions } from "./StepBusinessDeductions";
+import { siteConfig } from "@/config/site";
 
 // ─── Step Configuration ───────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ const STEP_LABELS: Record<QuestionnaireStep, string> = {
 
 const LOADING_MESSAGES = [
   "Crunching your numbers...",
-  "Checking ATO rates for 2025-26...",
+  `Checking ATO rates for ${siteConfig.financialYear}...`,
   "Finding deductions you might be missing...",
   "Looking up state-specific benefits...",
   "Building your personalised report...",

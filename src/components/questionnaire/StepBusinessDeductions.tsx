@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import type { BusinessDeductions, HomeOfficeMethod } from "@/types/questionnaire";
+import { siteConfig } from "@/config/site";
 
 type StepBusinessDeductionsProps = {
   deductions: BusinessDeductions | undefined;
@@ -33,7 +34,7 @@ const DEDUCTION_FIELDS: DeductionField[] = [
     key: "toolsAndEquipment",
     label: "Tools & Equipment",
     helper:
-      "Power tools, hand tools, machinery, equipment under $20,000 each. These are instantly deductible.",
+      "Power tools, hand tools, machinery, equipment. Capital items under the instant asset write-off threshold are immediately deductible; larger ones are depreciated.",
     placeholder: "e.g. 15,000",
   },
   {
@@ -159,7 +160,7 @@ export function StepBusinessDeductions({
 
   const homeOfficeEstimate = useMemo(() => {
     if (current.homeOfficeMethod === "hours" && current.homeOfficeHoursPerWeek > 0) {
-      return current.homeOfficeHoursPerWeek * 48 * 0.67;
+      return current.homeOfficeHoursPerWeek * 48 * 0.70;
     }
     return 0;
   }, [current.homeOfficeMethod, current.homeOfficeHoursPerWeek]);
@@ -219,7 +220,7 @@ export function StepBusinessDeductions({
             Home Office
           </p>
           <p className="text-sm text-text-secondary mb-3">
-            Claim 67c/hour (fixed rate method) or actual expenses. The fixed
+            Claim 70c/hour (fixed rate method) or actual expenses. The fixed
             rate covers electricity, internet, phone, and stationery.
           </p>
           <div
@@ -229,7 +230,7 @@ export function StepBusinessDeductions({
           >
             {(
               [
-                { value: "hours" as const, label: "Fixed rate (67c/hour)" },
+                { value: "hours" as const, label: "Fixed rate (70c/hour)" },
                 { value: "actual" as const, label: "Actual expenses" },
               ] as const
             ).map((option) => {
@@ -297,10 +298,10 @@ export function StepBusinessDeductions({
             htmlFor="deduction-totalAssetPurchases"
             className="block text-base font-semibold text-text-primary mb-1"
           >
-            Large Assets Over $20,000
+            Large Assets To Be Depreciated
           </label>
           <p className="text-sm text-text-secondary mb-3">
-            Items over $20,000 each are depreciated over their effective life,
+            Items above the write-off threshold are depreciated over their effective life,
             not claimed in full this year
           </p>
           <div className="relative">
@@ -350,10 +351,12 @@ export function StepBusinessDeductions({
       {/* Instant asset write-off note */}
       <div className="mt-4 rounded-lg bg-bg-elevated border border-border p-3">
         <p className="text-xs text-text-secondary">
-          Under the Instant Asset Write-Off, items under $20,000 each are fully
-          deductible in the year of purchase (2025-26 FY). This is per item, not
-          a total cap. Items over $20,000 are depreciated over their effective
-          life.
+          The $20,000 instant asset write-off expired on 30 June 2026. Under
+          current law the threshold for {siteConfig.financialYear} is $1,000 per item. A
+          permanent $20,000 threshold is before Parliament, with a Senate
+          committee report due 13 August 2026. Talk to your accountant before
+          timing a large purchase. Items above the threshold are depreciated
+          over their effective life.
         </p>
       </div>
     </fieldset>

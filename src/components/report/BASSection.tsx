@@ -4,6 +4,7 @@ import type { BASSection as BASSectionData } from "@/types/report";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { QUARTERLY_BAS_DATES } from "@/data/bas-schedule";
+import { siteConfig } from "@/config/site";
 
 type BASSectionProps = {
   data: BASSectionData;
@@ -82,7 +83,7 @@ export function BASSection({ data }: BASSectionProps) {
 
       {/* BAS schedule table */}
       {data.required && (
-        <Card title="2025-26 BAS Schedule" className="mb-6">
+        <Card title={`${siteConfig.financialYear} BAS Schedule`} className="mb-6">
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="w-full text-sm">
               <thead>

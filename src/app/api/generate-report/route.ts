@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import Anthropic, {
+  APIConnectionError,
+  APIError,
+  AuthenticationError,
+  BadRequestError,
+  NotFoundError,
+  RateLimitError,
+} from "@anthropic-ai/sdk";
 import { buildSystemPrompt, buildUserPrompt } from "@/lib/prompt";
 import { parseReportResponse } from "@/lib/report-schema";
 import { sanitizeString, sanitizeNumber, isValidState } from "@/lib/sanitize";
@@ -18,6 +25,21 @@ import type {
   BusinessDeductions,
   HomeOfficeMethod,
 } from "@/types/questionnaire";
+
+// ─── Model ──────────────────────────────────────────────────────────────────
+
+/**
+ * Claude model used to draft the report.
+ *
+ * History: this was pinned to claude-sonnet-4-20250514, which Anthropic retired
+ * on 15 June 2026. A retired model ID returns HTTP 404 (not_found_error), which
+ * surfaced here as a generic 502 and took the whole tool offline silently.
+ * Overridable via env so a future retirement is a config change, not a redeploy.
+ */
+const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
+
+/** Adaptive thinking pushes a full report past the default serverless timeout. */
+export const maxDuration = 120;
 
 // ─── Rate Limiting (in-memory) ──────────────────────────────────────────────
 
@@ -445,8 +467,12 @@ async function generateReport(
     : buildSystemPrompt();
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
+    model: MODEL,
+    // Sonnet 5 counts thinking against max_tokens, and its tokenizer runs ~30%
+    // heavier than Sonnet 4's. 4096 truncated the report mid-JSON.
+    max_tokens: 16_000,
+    thinking: { type: "adaptive" },
+    output_config: { effort: "low" },
     system: systemPrompt,
     messages: [
       {
@@ -518,11 +544,54 @@ export async function POST(request: NextRequest) {
       responseText = await generateReport(answers);
     } catch (err) {
       if (err instanceof Error && err.message === "MISSING_API_KEY") {
+        console.error("[Sorted] FATAL: ANTHROPIC_API_KEY is not set.");
         return NextResponse.json(
           { error: "Service configuration error. Please try again later." },
           { status: 500 }
         );
       }
+
+      // Classify before responding. A retired model, a revoked key and an empty
+      // credit balance are all PERMANENT -- telling the user to "try again"
+      // sends them into a loop and hides an outage that needs a human.
+      // APIConnectionError extends APIError in this SDK, so it must be ruled
+      // out first -- it is a transient network fault, not an API status.
+      if (err instanceof APIError && !(err instanceof APIConnectionError)) {
+        const detail = `status=${err.status} type=${err.type} request_id=${err.requestID} message=${err.message}`;
+
+        if (err instanceof NotFoundError) {
+          console.error(
+            `[Sorted] FATAL: model "${MODEL}" was rejected as not found -- it is ` +
+              `most likely retired. Update MODEL / ANTHROPIC_MODEL. ${detail}`
+          );
+        } else if (err instanceof AuthenticationError) {
+          console.error(`[Sorted] FATAL: ANTHROPIC_API_KEY is invalid or revoked. ${detail}`);
+        } else if (
+          err instanceof BadRequestError &&
+          /credit balance|billing/i.test(err.message)
+        ) {
+          console.error(`[Sorted] FATAL: Anthropic credit exhausted -- top up billing. ${detail}`);
+        } else if (err instanceof RateLimitError) {
+          console.warn(`[Sorted] Rate limited by Anthropic (transient). ${detail}`);
+          return NextResponse.json(
+            { error: "We're busy right now. Please try again in a minute." },
+            { status: 503 }
+          );
+        } else {
+          console.error(`[Sorted] Claude API error. ${detail}`);
+          return NextResponse.json(
+            { error: "Failed to generate report. Please try again." },
+            { status: 502 }
+          );
+        }
+
+        // Permanent, operator-fixable. Do not invite a retry.
+        return NextResponse.json(
+          { error: "Sorted is temporarily unavailable. We've been alerted and are on it." },
+          { status: 503 }
+        );
+      }
+
       console.error("[Sorted] Claude API error:", err instanceof Error ? err.message : err);
       return NextResponse.json(
         { error: "Failed to generate report. Please try again." },
@@ -561,9 +630,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 6. Validate tax figures against deterministic calculation
-    const estimatedIncome =
+    // 6. Validate tax figures against deterministic calculation.
+    //
+    // This must run on TAXABLE income, not gross. Feeding gross income here
+    // produced a report that contradicted itself: a sole trader on $120k with
+    // $48k of deductions saw a headline "tax owed" of $30,688 sitting directly
+    // above an explanation that worked out $13,675.
+    const grossIncome =
       (answers.annualSalary ?? 0) + (answers.annualRevenue ?? 0);
+
+    // The model reports deductions in two sections and is NOT consistent about
+    // whether `deductions` already contains `businessDeductions`. Adding them
+    // double-counts whenever it does; taking the larger never does. Erring
+    // toward fewer deductions overstates tax slightly, which is the safe
+    // direction for an estimate someone might set money aside against.
+    const claimedDeductions = Math.max(
+      reportData.deductions?.totalEstimatedDeductions ?? 0,
+      reportData.businessDeductions?.totalDeductions ?? 0,
+      0
+    );
+
+    // Deductions above gross income are not credible -- clamp rather than
+    // letting a hallucinated total drive taxable income negative.
+    const estimatedIncome = Math.max(
+      0,
+      grossIncome - Math.min(claimedDeductions, grossIncome)
+    );
 
     if (estimatedIncome > 0) {
       const hasPrivateHealth = answers.privateHealth === "yes";

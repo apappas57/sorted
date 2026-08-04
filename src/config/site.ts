@@ -7,7 +7,10 @@ export const siteConfig = {
   repo: "https://github.com/apappas57/sorted",
   license: "MIT",
   donationsUrl: "https://buymeacoffee.com/imsorted",
-  financialYear: "2025-26",
+  // Single source of truth for the financial year. Every user-facing mention of
+  // the year must read this -- hardcoded copies across components are how the
+  // site ended up advertising 2025-26 rates a month into 2026-27.
+  financialYear: "2026-27",
   nav: [
     { label: "How It Works", href: "/#how-it-works" },
     { label: "Get Sorted", href: "/get-sorted" },
