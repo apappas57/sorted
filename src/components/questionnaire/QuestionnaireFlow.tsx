@@ -82,10 +82,13 @@ const STEP_LABELS: Record<QuestionnaireStep, string> = {
 const LOADING_MESSAGES = [
   "Crunching your numbers...",
   `Checking ATO rates for ${siteConfig.financialYear}...`,
+  "Working out your tax and Medicare levy...",
   "Finding deductions you might be missing...",
+  "Comparing vehicle and home office methods...",
   "Looking up state-specific benefits...",
+  "Checking what you may be leaving on the table...",
   "Building your personalised report...",
-  "Almost there...",
+  "Almost there, putting it all together...",
 ];
 
 // ─── Initial State ────────────────────────────────────────────────────────────
@@ -105,20 +108,37 @@ export function QuestionnaireFlow() {
   // Submit/report state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
 
   const stepContainerRef = useRef<HTMLDivElement>(null);
 
-  // Rotate loading messages while submitting
+  // Rotate loading messages while submitting.
+  //
+  // Report generation measured 61-85s in production. The messages are paced to
+  // span that, and elapsed seconds are shown from 20s so a long wait reads as
+  // progress rather than a hung page -- the previous version ran out of
+  // messages at 18s and then sat frozen on "Almost there..." for another
+  // minute, which looks broken right after the user has answered 12 questions.
   useEffect(() => {
     if (!isSubmitting) return;
     const interval = setInterval(() => {
       setLoadingMessageIndex((prev) =>
         prev < LOADING_MESSAGES.length - 1 ? prev + 1 : prev
       );
-    }, 3000);
+    }, 9000);
     return () => clearInterval(interval);
+  }, [isSubmitting]);
+
+  // Elapsed-time counter for the loading state.
+  useEffect(() => {
+    if (!isSubmitting) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const tick = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    return () => clearInterval(tick);
   }, [isSubmitting]);
 
   // ─── Conditional Step Logic ───────────────────────────────────────────────
@@ -389,6 +409,7 @@ export function QuestionnaireFlow() {
 
     setIsSubmitting(true);
     setLoadingMessageIndex(0);
+    setElapsedSeconds(0);
     setError(null);
 
     try {
@@ -434,8 +455,14 @@ export function QuestionnaireFlow() {
           {LOADING_MESSAGES[loadingMessageIndex]}
         </p>
         <p className="mt-2 text-sm text-text-muted text-center">
-          This usually takes 10-15 seconds
+          This usually takes about a minute. Please keep this page open.
         </p>
+        {elapsedSeconds >= 20 && (
+          <p className="mt-1 text-xs text-text-muted text-center tabular-nums">
+            {elapsedSeconds}s elapsed
+            {elapsedSeconds >= 90 && " - still working, hang tight"}
+          </p>
+        )}
       </div>
     );
   }
