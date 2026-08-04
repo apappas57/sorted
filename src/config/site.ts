@@ -11,9 +11,19 @@ export const siteConfig = {
   // the year must read this -- hardcoded copies across components are how the
   // site ended up advertising 2025-26 rates a month into 2026-27.
   financialYear: "2026-27",
+  /**
+   * Date the ATO rates in src/data were last verified against primary sources.
+   * Shown publicly. Update it whenever you touch a rate, and see
+   * docs/RECHECK-CALENDAR.md for when each figure next changes.
+   */
+  ratesVerified: "4 August 2026",
+  operator: "Alex Pappas",
+  operatorBusiness: "Groundwork Digital Studio",
+  operatorUrl: "https://groundworkdigitalstudio.com.au",
   nav: [
     { label: "How It Works", href: "/#how-it-works" },
     { label: "Get Sorted", href: "/get-sorted" },
+    { label: "About", href: "/about" },
     {
       label: "GitHub",
       href: "https://github.com/apappas57/sorted",

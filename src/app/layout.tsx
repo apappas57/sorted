@@ -3,6 +3,8 @@ import { DM_Sans, Source_Sans_3 } from "next/font/google";
 import { siteConfig } from "@/config/site";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -72,6 +74,14 @@ export default function RootLayout({
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
+        {/*
+          Cookieless and privacy-preserving, so no consent banner is required
+          and the "no data stored" promise on the landing page still holds.
+          Both load from same-origin /_vercel/* paths, which is why the strict
+          CSP in next.config.ts does not need widening.
+        */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

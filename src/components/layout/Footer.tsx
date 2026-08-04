@@ -22,6 +22,15 @@ export function Footer() {
           </div>
 
           <nav className="flex items-center gap-4 text-sm" aria-label="Footer navigation">
+            <Link
+              href="/about"
+              className="text-text-secondary transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green focus-visible:ring-offset-2 rounded-sm"
+            >
+              About
+            </Link>
+
+            <span className="text-border" aria-hidden="true">|</span>
+
             <a
               href={siteConfig.repo}
               target="_blank"
@@ -59,8 +68,22 @@ export function Footer() {
           </nav>
         </div>
 
+        {/* Rates provenance. A dated line is a trust signal on a tax tool, and
+            it is the thing that makes silent staleness visible to users. */}
+        <p className="mt-6 text-center text-xs text-text-muted">
+          ATO rates for {siteConfig.financialYear}, last verified{" "}
+          {siteConfig.ratesVerified}.{" "}
+          <Link
+            href="/about"
+            className="underline underline-offset-2 hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green rounded-sm"
+          >
+            Where these come from
+          </Link>
+          .
+        </p>
+
         {/* Disclaimer */}
-        <p className="mt-6 text-center text-xs text-text-muted leading-relaxed">
+        <p className="mt-3 text-center text-xs text-text-muted leading-relaxed">
           {siteConfig.disclaimer}
         </p>
 
