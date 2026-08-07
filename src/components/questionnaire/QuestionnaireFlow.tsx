@@ -42,6 +42,12 @@ import { StepJobHunting } from "./StepJobHunting";
 import { StepState } from "./StepState";
 import { StepBusinessDeductions } from "./StepBusinessDeductions";
 import { siteConfig } from "@/config/site";
+import {
+  SseFrameParser,
+  type ReportStreamErrorData,
+  type ReportStreamTickData,
+  type SseFrame,
+} from "@/lib/report-stream";
 
 // ─── Step Configuration ───────────────────────────────────────────────────────
 
@@ -97,6 +103,74 @@ const INITIAL_ANSWERS: Partial<QuestionnaireAnswers> = {
   debts: [],
 };
 
+// ─── Device-Local Persistence ─────────────────────────────────────────────────
+//
+// The app is server-stateless by design, so sessionStorage is the only place
+// answers survive a page reload. iOS suspending the page mid-generation used to
+// evaporate 12+ questions of work; now answers are saved as they are entered,
+// and an in-flight flag lets a reload-during-generation land on honest copy
+// with a one-tap regenerate.
+
+const ANSWERS_STORAGE_KEY = "sorted.answers.v1";
+const INFLIGHT_STORAGE_KEY = "sorted.inflight.v1";
+
+// Liveness thresholds for the SSE stream. The server heartbeats every ~10s,
+// so ~30s of silence means three missed ticks: the connection is dead even if
+// reader.read() never rejects (Wi-Fi to cellular hand-off, NAT idle drop, the
+// documented Safari cases where a request just stops). Without this, a dead
+// stream leaves the loading screen up forever with the wake lock held.
+const STREAM_STALE_MS = 30_000;
+const STREAM_STALE_CHECK_MS = 5_000;
+
+/**
+ * Restore persisted answers with a defensive shape-check. Corrupt or stale
+ * data must degrade to fewer answers (or none), never a crash -- the server
+ * revalidates everything on submit anyway.
+ */
+function readStoredAnswers(): Partial<QuestionnaireAnswers> | null {
+  try {
+    const raw = sessionStorage.getItem(ANSWERS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    const record = parsed as Record<string, unknown>;
+    if (!Array.isArray(record.debts)) return null;
+    // Drop debt entries that are not object-shaped before they reach render.
+    record.debts = record.debts.filter(
+      (d) =>
+        d !== null &&
+        typeof d === "object" &&
+        typeof (d as Record<string, unknown>).type === "string"
+    );
+    return record as Partial<QuestionnaireAnswers>;
+  } catch {
+    // Unreadable storage or invalid JSON -- discard silently.
+    return null;
+  }
+}
+
+function clearStoredAnswers(): void {
+  try {
+    sessionStorage.removeItem(ANSWERS_STORAGE_KEY);
+  } catch {
+    // Storage unavailable (private browsing, quota) -- nothing to clear.
+  }
+}
+
+function setInflightFlag(on: boolean): void {
+  try {
+    if (on) {
+      sessionStorage.setItem(INFLIGHT_STORAGE_KEY, "1");
+    } else {
+      sessionStorage.removeItem(INFLIGHT_STORAGE_KEY);
+    }
+  } catch {
+    // Storage unavailable -- the reload-recovery copy just will not show.
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function QuestionnaireFlow() {
@@ -110,9 +184,25 @@ export function QuestionnaireFlow() {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Permanent errors (service outage) must not invite a retry.
+  const [errorPermanent, setErrorPermanent] = useState(false);
+  // A connection-class failure mid-generation leaves complete answers behind,
+  // so "Try again" can regenerate in one tap instead of re-walking the steps.
+  const [retryRegenerates, setRetryRegenerates] = useState(false);
+  // Set when a reload happened while a report was generating (in-flight flag
+  // found in sessionStorage on mount).
+  const [wasInterrupted, setWasInterrupted] = useState(false);
+  // Restore-before-persist gate for sessionStorage (see effects below).
+  const [storageReady, setStorageReady] = useState(false);
   const [report, setReport] = useState<ReportData | null>(null);
 
   const stepContainerRef = useRef<HTMLDivElement>(null);
+  // Screen wake lock held while generating (see the wake-lock effect).
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const wakeLockWantedRef = useRef(false);
+  // True if the page went hidden during generation -- lets a failure explain
+  // honestly that the phone locked or switched apps, not "connection error".
+  const wentHiddenRef = useRef(false);
 
   // Rotate loading messages while submitting.
   //
@@ -131,7 +221,8 @@ export function QuestionnaireFlow() {
     return () => clearInterval(interval);
   }, [isSubmitting]);
 
-  // Elapsed-time counter for the loading state.
+  // Elapsed-time counter for the loading state. This is the client-side
+  // fallback; server tick events overwrite it with server-truth every ~10s.
   useEffect(() => {
     if (!isSubmitting) {
       setElapsedSeconds(0);
@@ -140,6 +231,88 @@ export function QuestionnaireFlow() {
     const tick = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     return () => clearInterval(tick);
   }, [isSubmitting]);
+
+  // Restore persisted answers once on mount, and detect a reload that happened
+  // mid-generation. StrictMode runs this twice; both passes are idempotent
+  // (the persist effect below stays off until storageReady flips, so the
+  // second pass re-reads identical storage).
+  useEffect(() => {
+    const stored = readStoredAnswers();
+    if (stored) {
+      setAnswers(stored);
+    }
+    try {
+      if (sessionStorage.getItem(INFLIGHT_STORAGE_KEY)) {
+        sessionStorage.removeItem(INFLIGHT_STORAGE_KEY);
+        setWasInterrupted(true);
+      }
+    } catch {
+      // Storage unavailable -- treat as a fresh visit.
+    }
+    setStorageReady(true);
+  }, []);
+
+  // Persist answers as they change. Gated on storageReady so the mount-time
+  // INITIAL_ANSWERS render cannot clobber stored answers before restore runs,
+  // and skipped for the pristine object so start-over leaves storage clean.
+  useEffect(() => {
+    if (!storageReady || answers === INITIAL_ANSWERS) return;
+    try {
+      sessionStorage.setItem(ANSWERS_STORAGE_KEY, JSON.stringify(answers));
+    } catch {
+      // Storage unavailable -- persistence is best-effort.
+    }
+  }, [answers, storageReady]);
+
+  // Acquire the screen wake lock. Progressive enhancement: feature-detected,
+  // and never throws where unsupported or denied.
+  const acquireWakeLock = useCallback(async () => {
+    if (typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
+    try {
+      const sentinel = await navigator.wakeLock.request("screen");
+      if (wakeLockWantedRef.current) {
+        // Release any superseded sentinel (a no-op if it already auto-released
+        // when the page hid) before storing the fresh one.
+        wakeLockRef.current?.release().catch(() => undefined);
+        wakeLockRef.current = sentinel;
+      } else {
+        // Generation finished (or the effect tore down) while the request was
+        // in flight -- do not leak a lock nobody will release.
+        sentinel.release().catch(() => undefined);
+      }
+    } catch {
+      // Denied or unsupported -- generation carries on without it.
+    }
+  }, []);
+
+  // Hold a screen wake lock while generating so the phone does not auto-lock
+  // during the ~1 minute wait (the 6 Aug production failure: iOS suspended the
+  // page, the fetch died, and a report the server had finished evaporated).
+  // Wake locks auto-release when the page hides, so re-acquire on return to
+  // visible, and record that the page went hidden so a subsequent failure can
+  // tell the truth about why.
+  useEffect(() => {
+    if (!isSubmitting) return;
+    wakeLockWantedRef.current = true;
+    void acquireWakeLock();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        wentHiddenRef.current = true;
+      } else if (wakeLockWantedRef.current) {
+        void acquireWakeLock();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      wakeLockWantedRef.current = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      const sentinel = wakeLockRef.current;
+      wakeLockRef.current = null;
+      sentinel?.release().catch(() => undefined);
+    };
+  }, [isSubmitting, acquireWakeLock]);
 
   // ─── Conditional Step Logic ───────────────────────────────────────────────
 
@@ -404,46 +577,167 @@ export function QuestionnaireFlow() {
 
   // ─── Submit ───────────────────────────────────────────────────────────────
 
-  const handleSubmit = useCallback(async () => {
-    if (!isCurrentStepValid) return;
-
+  const startGeneration = useCallback(async () => {
     setIsSubmitting(true);
     setLoadingMessageIndex(0);
     setElapsedSeconds(0);
     setError(null);
+    setErrorPermanent(false);
+    setRetryRegenerates(false);
+    setWasInterrupted(false);
+    wentHiddenRef.current = false;
+    setInflightFlag(true);
+
+    // Declared OUTSIDE the try so the catch can consult it: a stream failure
+    // that arrives AFTER the terminal frame was handled (TCP reset behind the
+    // final data packet, suspension between the report frame and clean EOF)
+    // must not poison already-delivered state.
+    let sawTerminalEvent = false;
+
+    // Liveness watchdog. If no bytes arrive for STREAM_STALE_MS, abort the
+    // fetch; the rejection lands in the catch below, which already shows the
+    // honest copy and offers one-tap regeneration.
+    const controller = new AbortController();
+    let lastEventAt = Date.now();
+    const stalenessWatchdog = setInterval(() => {
+      if (Date.now() - lastEventAt > STREAM_STALE_MS) {
+        controller.abort();
+      }
+    }, STREAM_STALE_CHECK_MS);
 
     try {
       const response = await fetch("/api/generate-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(answers),
+        signal: controller.signal,
       });
 
-      if (response.status === 429) {
-        setError(
-          "You've used your 3 free reports today. Come back tomorrow!"
-        );
+      const contentType = response.headers.get("content-type") ?? "";
+
+      // Rate-limit and validation failures are still plain JSON, decided
+      // before the server starts streaming. Handle them exactly as before.
+      if (!contentType.includes("text/event-stream")) {
+        if (response.status === 429) {
+          setError(
+            "You've used your 3 free reports today. Come back tomorrow!"
+          );
+          return;
+        }
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          setError(
+            data?.error ?? "Something went wrong generating your report. Please try again."
+          );
+          return;
+        }
+
+        // Plain JSON success: an older deploy still serving the pre-stream
+        // shape during rollout.
+        const data = await response.json();
+        setReport(data);
+        clearStoredAnswers();
         return;
       }
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        setError(
-          data?.error ?? "Something went wrong generating your report. Please try again."
-        );
-        return;
+      // SSE path: tick events while the server works, then a single terminal
+      // report or error event.
+      if (!response.body) {
+        throw new Error("Streaming response had no body.");
       }
 
-      const data = await response.json();
-      setReport(data);
+      const handleFrame = (frame: SseFrame): void => {
+        if (frame.event === "tick") {
+          try {
+            const tick = JSON.parse(frame.data) as ReportStreamTickData;
+            if (typeof tick.elapsedSeconds === "number") {
+              // Server truth replaces the client-only timer; the local
+              // interval keeps counting between ticks as a fallback.
+              setElapsedSeconds(tick.elapsedSeconds);
+            }
+          } catch {
+            // A malformed tick is harmless -- the local timer keeps going.
+          }
+        } else if (frame.event === "report") {
+          const data = JSON.parse(frame.data) as ReportData;
+          setReport(data);
+          clearStoredAnswers();
+          sawTerminalEvent = true;
+        } else if (frame.event === "error") {
+          let message =
+            "Something went wrong generating your report. Please try again.";
+          let permanent = false;
+          try {
+            const payload = JSON.parse(frame.data) as ReportStreamErrorData;
+            if (typeof payload.error === "string" && payload.error) {
+              message = payload.error;
+            }
+            permanent = payload.permanent === true;
+          } catch {
+            // Fall through to the generic message.
+          }
+          setError(message);
+          setErrorPermanent(permanent);
+          sawTerminalEvent = true;
+        }
+      };
+
+      const reader = response.body.getReader();
+      // Streaming mode: the decoder buffers multi-byte UTF-8 split across
+      // chunk boundaries; the parser buffers frames split across chunks.
+      const decoder = new TextDecoder();
+      const parser = new SseFrameParser();
+
+      // Stream open counts as liveness; every arriving chunk refreshes it.
+      lastEventAt = Date.now();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        lastEventAt = Date.now();
+        for (const frame of parser.push(
+          decoder.decode(value, { stream: true })
+        )) {
+          handleFrame(frame);
+        }
+      }
+      // Flush anything the decoder or parser still holds.
+      for (const frame of parser.push(decoder.decode())) {
+        handleFrame(frame);
+      }
+
+      if (!sawTerminalEvent) {
+        // The stream died before a result arrived (network drop, page
+        // suspension) -- surface it through the catch below.
+        throw new Error("Stream ended before a result arrived.");
+      }
     } catch {
+      // A failure AFTER the terminal frame was already handled (report
+      // delivered, or a server-classified error shown) must not overwrite
+      // that state with retryable connection copy. The finally still runs.
+      if (sawTerminalEvent) return;
+      // The request or stream died client-side. If the page went hidden during
+      // the wait, say so honestly instead of blaming the connection. Either
+      // way the answers are saved and a single tap retries.
       setError(
-        "Could not connect to the server. Check your internet connection and try again."
+        wentHiddenRef.current
+          ? "It looks like your phone locked or switched apps while your report was generating, so the connection dropped. Your answers are saved. Tap Try again to generate your report."
+          : "Could not connect to the server. Check your internet connection and try again."
       );
+      setErrorPermanent(false);
+      setRetryRegenerates(true);
     } finally {
+      clearInterval(stalenessWatchdog);
       setIsSubmitting(false);
+      setInflightFlag(false);
     }
-  }, [answers, isCurrentStepValid]);
+  }, [answers]);
+
+  const handleSubmit = useCallback(() => {
+    if (!isCurrentStepValid) return;
+    void startGeneration();
+  }, [isCurrentStepValid, startGeneration]);
 
   // ─── Loading State ────────────────────────────────────────────────────────
 
@@ -477,6 +771,13 @@ export function QuestionnaireFlow() {
           setReport(null);
           setAnswers(INITIAL_ANSWERS);
           setCurrentStepIndex(0);
+          // A late stream failure can never poison this screen now, but clear
+          // error state anyway so Start over always lands on the
+          // questionnaire, not a stale "Something went wrong".
+          setError(null);
+          setErrorPermanent(false);
+          setRetryRegenerates(false);
+          clearStoredAnswers();
           scrollToTop();
         }}
       />
@@ -511,10 +812,65 @@ export function QuestionnaireFlow() {
         <Button
           onClick={() => {
             setError(null);
+            setErrorPermanent(false);
+            if (retryRegenerates) {
+              setRetryRegenerates(false);
+              void startGeneration();
+            }
           }}
         >
-          Try again
+          {/* A permanent outage must not invite a retry that cannot succeed. */}
+          {errorPermanent ? "Back to my answers" : "Try again"}
         </Button>
+      </div>
+    );
+  }
+
+  // ─── Interrupted State (reload during generation) ─────────────────────────
+
+  if (wasInterrupted) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center px-4 text-center">
+        <div className="rounded-full bg-amber-50 p-4 mb-4">
+          <svg
+            className="h-8 w-8 text-amber-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+            />
+          </svg>
+        </div>
+        <h2 className="text-xl font-semibold text-text-primary font-[family-name:var(--font-heading)] mb-2">
+          Your report was interrupted
+        </h2>
+        <p className="text-text-secondary mb-6 max-w-md">
+          The page closed or reloaded while your report was generating. Your
+          answers are saved, so you can generate it again without starting
+          over.
+        </p>
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <Button
+            onClick={() => {
+              void startGeneration();
+            }}
+            size="lg"
+          >
+            Generate my report
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setWasInterrupted(false)}
+          >
+            Review my answers
+          </Button>
+        </div>
       </div>
     );
   }

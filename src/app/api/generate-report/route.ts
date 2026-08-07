@@ -12,6 +12,8 @@ import { parseReportResponse } from "@/lib/report-schema";
 import { sanitizeString, sanitizeNumber, isValidState } from "@/lib/sanitize";
 import { validateTaxFigures } from "@/lib/tax-calculator";
 import { siteConfig } from "@/config/site";
+import { encodeSseEvent, type ReportStreamEvent } from "@/lib/report-stream";
+import type { ReportData } from "@/types/report";
 import type {
   QuestionnaireAnswers,
   AustralianState,
@@ -491,53 +493,27 @@ async function generateReport(
   return textBlock.text;
 }
 
-// ─── Route Handler ──────────────────────────────────────────────────────────
+// ─── Report Pipeline ────────────────────────────────────────────────────────
 
-export async function POST(request: NextRequest) {
+/**
+ * Outcome of the generate -> parse -> validate -> deterministic-correct
+ * pipeline. `permanent: true` marks the classified FATAL outages (retired
+ * model, revoked key, exhausted credit) where inviting a retry would loop the
+ * user against a service that needs a human.
+ */
+type PipelineOutcome =
+  | { ok: true; report: ReportData }
+  | { ok: false; error: string; permanent: boolean };
+
+/**
+ * Steps 4-6 of the original handler, unchanged, minus the HTTP framing: the
+ * route now streams heartbeats while this runs and delivers the outcome as
+ * the final SSE event instead of a plain JSON body.
+ */
+async function runReportPipeline(
+  answers: QuestionnaireAnswers
+): Promise<PipelineOutcome> {
   try {
-    // 1. Rate limiting
-    const forwarded = request.headers.get("x-forwarded-for");
-    const ip = forwarded?.split(",")[0]?.trim() || "unknown";
-
-    if (isRateLimited(ip)) {
-      return NextResponse.json(
-        {
-          error:
-            "You've used your 3 free reports today. Come back tomorrow!",
-        },
-        { status: 429 }
-      );
-    }
-
-    // 2. Parse and validate input
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON in request body." },
-        { status: 400 }
-      );
-    }
-
-    const validation = validateAndSanitize(body);
-    if (!validation.ok) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
-      );
-    }
-
-    const { answers } = validation;
-
-    // 3. Check API key before making the call
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json(
-        { error: "Service configuration error. Please try again later." },
-        { status: 500 }
-      );
-    }
-
     // 4. Generate report with Claude
     let responseText: string;
     try {
@@ -545,10 +521,11 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       if (err instanceof Error && err.message === "MISSING_API_KEY") {
         console.error("[Sorted] FATAL: ANTHROPIC_API_KEY is not set.");
-        return NextResponse.json(
-          { error: "Service configuration error. Please try again later." },
-          { status: 500 }
-        );
+        return {
+          ok: false,
+          error: "Service configuration error. Please try again later.",
+          permanent: false,
+        };
       }
 
       // Classify before responding. A retired model, a revoked key and an empty
@@ -573,30 +550,34 @@ export async function POST(request: NextRequest) {
           console.error(`[Sorted] FATAL: Anthropic credit exhausted -- top up billing. ${detail}`);
         } else if (err instanceof RateLimitError) {
           console.warn(`[Sorted] Rate limited by Anthropic (transient). ${detail}`);
-          return NextResponse.json(
-            { error: "We're busy right now. Please try again in a minute." },
-            { status: 503 }
-          );
+          return {
+            ok: false,
+            error: "We're busy right now. Please try again in a minute.",
+            permanent: false,
+          };
         } else {
           console.error(`[Sorted] Claude API error. ${detail}`);
-          return NextResponse.json(
-            { error: "Failed to generate report. Please try again." },
-            { status: 502 }
-          );
+          return {
+            ok: false,
+            error: "Failed to generate report. Please try again.",
+            permanent: false,
+          };
         }
 
         // Permanent, operator-fixable. Do not invite a retry.
-        return NextResponse.json(
-          { error: "Sorted is temporarily unavailable. We've been alerted and are on it." },
-          { status: 503 }
-        );
+        return {
+          ok: false,
+          error: "Sorted is temporarily unavailable. We've been alerted and are on it.",
+          permanent: true,
+        };
       }
 
       console.error("[Sorted] Claude API error:", err instanceof Error ? err.message : err);
-      return NextResponse.json(
-        { error: "Failed to generate report. Please try again." },
-        { status: 502 }
-      );
+      return {
+        ok: false,
+        error: "Failed to generate report. Please try again.",
+        permanent: false,
+      };
     }
 
     // 5. Parse and validate the AI response
@@ -623,10 +604,11 @@ export async function POST(request: NextRequest) {
         reportData = parseReportResponse(parsed);
       } catch (retryErr) {
         console.error("[Sorted] Retry parse also failed:", retryErr instanceof Error ? retryErr.message : retryErr);
-        return NextResponse.json(
-          { error: "Failed to generate report. Please try again." },
-          { status: 502 }
-        );
+        return {
+          ok: false,
+          error: "Failed to generate report. Please try again.",
+          permanent: false,
+        };
       }
     }
 
@@ -678,13 +660,126 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 7. Record the successful request for rate limiting
-    recordRequest(ip);
+    return { ok: true, report: reportData };
+  } catch {
+    // Mirrors the old route-level catch: anything unexpected in the pipeline
+    // resolves to a retryable failure rather than crashing the stream.
+    return {
+      ok: false,
+      error: "An unexpected error occurred. Please try again.",
+      permanent: false,
+    };
+  }
+}
 
-    // 8. Return the validated report
-    return NextResponse.json(reportData, {
+// ─── Route Handler ──────────────────────────────────────────────────────────
+
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Rate limiting -- plain JSON, decided before any streaming begins.
+    const forwarded = request.headers.get("x-forwarded-for");
+    const ip = forwarded?.split(",")[0]?.trim() || "unknown";
+
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        {
+          error:
+            "You've used your 3 free reports today. Come back tomorrow!",
+        },
+        { status: 429 }
+      );
+    }
+
+    // 2. Parse and validate input -- plain JSON, decided before any streaming.
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON in request body." },
+        { status: 400 }
+      );
+    }
+
+    const validation = validateAndSanitize(body);
+    if (!validation.ok) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      );
+    }
+
+    const { answers } = validation;
+
+    // 3. Check API key before making the call
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: "Service configuration error. Please try again later." },
+        { status: 500 }
+      );
+    }
+
+    // 4-6. Run the pipeline behind a heartbeat stream.
+    //
+    // Generation measured 61-85s in production. A single long response gave
+    // iOS the whole wait to suspend the page and kill the fetch client-side,
+    // losing a report the server had already finished (19:36 AEST, HTTP 200 in
+    // the Vercel logs, "Could not connect" on the phone). Streaming a tick
+    // every ~10s keeps the connection visibly alive and delivers the result
+    // as the final event.
+    const encoder = new TextEncoder();
+    const startedAt = Date.now();
+
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        // enqueue throws once the client has disconnected; swallow so the
+        // pipeline (and its classification logging) still runs to completion.
+        const send = (event: ReportStreamEvent, data: unknown): void => {
+          try {
+            controller.enqueue(encoder.encode(encodeSseEvent(event, data)));
+          } catch {
+            // Client gone -- nothing left to deliver to.
+          }
+        };
+
+        // First tick immediately so the client sees a live stream, then ~10s.
+        send("tick", { elapsedSeconds: 0 });
+        const heartbeat = setInterval(() => {
+          send("tick", {
+            elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
+          });
+        }, 10_000);
+
+        try {
+          const outcome = await runReportPipeline(answers);
+
+          if (outcome.ok) {
+            // 7-8. Send the validated report, then record the successful
+            // request for rate limiting. Order matters: only generations whose
+            // report event was actually sent count against the 3/day limit.
+            send("report", outcome.report);
+            recordRequest(ip);
+          } else {
+            send("error", {
+              error: outcome.error,
+              permanent: outcome.permanent,
+            });
+          }
+        } finally {
+          clearInterval(heartbeat);
+          try {
+            controller.close();
+          } catch {
+            // Already closed (client disconnect).
+          }
+        }
+      },
+    });
+
+    return new Response(stream, {
       status: 200,
       headers: {
+        "Content-Type": "text/event-stream",
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
       },
