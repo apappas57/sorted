@@ -11,6 +11,7 @@ import type {
   BusinessDeductions,
 } from "@/types/questionnaire";
 import { siteConfig } from "@/config/site";
+import { QUARTERLY_BAS_DATES, getNextBASDueDate } from "@/data/bas-schedule";
 
 const REPORT_JSON_SCHEMA = `{
   "discoveries": {
@@ -38,7 +39,7 @@ const REPORT_JSON_SCHEMA = `{
   "bas": {
     "required": <boolean>,
     "frequency": "<string, e.g. 'quarterly' or 'monthly' or 'not applicable'>",
-    "nextDueDate": "<string, e.g. '28 October 2025' or 'N/A'>",
+    "nextDueDate": "<string, the NEXT quarterly due date given in the BAS Lodgement reference below, formatted like '28 April 2027', or 'N/A'>",
     "gstRecommendation": "<string, whether they should register for GST>",
     "explanation": "<string, 2-3 sentences>",
     "tips": ["<string>"]
@@ -114,6 +115,21 @@ const REPORT_JSON_SCHEMA = `{
     "beforeEOFY": ["<string, action before 30 June>"]
   }
 }`;
+
+
+function todayISO(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+function formatBASDate(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function nextBASDueDateText(): string {
+  const next = getNextBASDueDate(new Date());
+  return next ? formatBASDate(next.dueDate) : "N/A (schedule needs rolling to the next financial year)";
+}
 
 export function buildSystemPrompt(): string {
   return `You are Sorted, an Australian financial discovery assistant for the ${siteConfig.financialYear} financial year. Your primary mission is to find money people are leaving on the table -- unclaimed deductions, missed benefits, tax optimisation opportunities, and savings they did not know about. You THEN provide a standard financial summary.
@@ -405,7 +421,8 @@ Standard Deduction for Work-Related Expenses (NEW for 2026-27):
 - If someone's itemised work-related expenses come to less than $1,000, flag that the standard deduction leaves them better off with no substantiation burden.
 
 BAS Lodgement:
-- Quarterly: due 28 days after quarter end (28 Oct, 28 Feb, 28 Apr, 28 Jul)
+- Quarterly due dates for ${siteConfig.financialYear} (self-lodging): ${QUARTERLY_BAS_DATES.map((q) => `Q${q.quarter} ${formatBASDate(q.dueDate)}`).join(", ")}
+- Today is ${formatBASDate(todayISO())}. The NEXT quarterly BAS due date is ${nextBASDueDateText()}. Use exactly that date for bas.nextDueDate when frequency is quarterly. Never return a date that has already passed.
 - Monthly: due 21 days after month end
 - Annual: due with income tax return
 
